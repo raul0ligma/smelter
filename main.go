@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	"github.com/rahul0tripathi/smelter/forkdb"
+	types2 "github.com/rahul0tripathi/smelter/types"
 	"github.com/rahul0tripathi/smelter/vm"
 )
 
@@ -102,20 +104,21 @@ type Config struct {
 func setDefaults(cfg *Config) {
 	if cfg.ChainConfig == nil {
 		cfg.ChainConfig = &params.ChainConfig{
-			ChainID:             big.NewInt(1),
-			HomesteadBlock:      new(big.Int),
-			DAOForkBlock:        new(big.Int),
-			DAOForkSupport:      false,
-			EIP150Block:         new(big.Int),
-			EIP155Block:         new(big.Int),
-			EIP158Block:         new(big.Int),
-			ByzantiumBlock:      new(big.Int),
-			ConstantinopleBlock: new(big.Int),
-			PetersburgBlock:     new(big.Int),
-			IstanbulBlock:       new(big.Int),
-			MuirGlacierBlock:    new(big.Int),
-			BerlinBlock:         new(big.Int),
-			LondonBlock:         new(big.Int),
+			ChainID:                       big.NewInt(1),
+			HomesteadBlock:                new(big.Int),
+			DAOForkBlock:                  new(big.Int),
+			DAOForkSupport:                false,
+			EIP150Block:                   new(big.Int),
+			EIP155Block:                   new(big.Int),
+			EIP158Block:                   new(big.Int),
+			ByzantiumBlock:                new(big.Int),
+			ConstantinopleBlock:           new(big.Int),
+			PetersburgBlock:               new(big.Int),
+			IstanbulBlock:                 new(big.Int),
+			MuirGlacierBlock:              new(big.Int),
+			BerlinBlock:                   new(big.Int),
+			LondonBlock:                   new(big.Int),
+			TerminalTotalDifficultyPassed: true,
 		}
 	}
 
@@ -153,9 +156,12 @@ func main() {
 
 	fmt.Println("hello world ")
 
-	sender := common.HexToAddress("0x0000000000000000000000000000000000000000")
+	sender := types2.Address0x1
 	cfg.Origin = sender
-	db := forkdb.ForkDB{}
+	db, err := forkdb.NewForkDB(context.Background(), "wss://arbitrum-one.publicnode.com")
+	if err != nil {
+		panic(err)
+	}
 	tracer := tracing.Hooks{
 		OnTxStart: func(vm *tracing.VMContext, tx *types.Transaction, from common.Address) {
 			fmt.Println("Transaction Start:", tx)
@@ -256,16 +262,29 @@ func main() {
 		Random:      nil,
 	}
 	senderRef := vm.AccountRef(cfg.Origin)
-	target := common.HexToAddress("0x0000000000000000000000000000000000000001")
-	vmenv := vm.NewEVM(blockContext, txContext, &db, cfg.ChainConfig, cfg.EVMConfig)
-	data, _ := hexutil.Decode("0x")
+	/// arb weth
+	target := common.HexToAddress("0x82af49447d8a07e3bd95bd0d56f35241523fbab1")
+	vmenv := vm.NewEVM(blockContext, txContext, db, cfg.ChainConfig, cfg.EVMConfig)
+	data, _ := hexutil.Decode("0xd0e30db0")
 	ret, leftOverGas, err := vmenv.Call(
 		senderRef,
 		target,
 		data,
 		30000000,
-		uint256.MustFromBig(new(big.Int).SetInt64(100)),
+		uint256.MustFromBig(new(big.Int).SetInt64(1000000)),
+	)
+	fmt.Println(ret, leftOverGas, err)
+
+	readBal, _ := hexutil.Decode("0x70a082310000000000000000000000000000000000000000000000000000000000000001")
+
+	balance, _, err := vmenv.Call(
+		senderRef,
+		target,
+		readBal,
+		30000000,
+		uint256.MustFromBig(new(big.Int).SetInt64(0)),
 	)
 
-	fmt.Println(ret, leftOverGas, err)
+	fmt.Println(new(big.Int).SetBytes(balance).String(), err)
+	//db.Dump()
 }
