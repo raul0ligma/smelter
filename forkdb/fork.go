@@ -1,15 +1,68 @@
 package forkdb
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
 )
 
+type State struct {
+	Balance *big.Int
+	Code    []byte
+	Nonce   uint64
+	Storage map[common.Hash]common.Hash
+}
+
 type ForkDB struct {
+	client     *ethclient.Client
+	ctx        context.Context
+	dirtyState map[common.Address]State
+}
+
+func (f *ForkDB) Dump() {
+	v, _ := json.Marshal(f.dirtyState)
+	fmt.Println(string(v))
+}
+
+func NewForkDB(ctx context.Context, cli string) (*ForkDB, error) {
+	client, err := ethclient.Dial(cli)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ForkDB{
+		client:     client,
+		ctx:        ctx,
+		dirtyState: make(map[common.Address]State),
+	}, nil
+}
+
+func (db *ForkDB) getOrCreateState(address common.Address) State {
+	if state, ok := db.dirtyState[address]; ok {
+		return state
+	}
+	state := State{
+		Balance: nil,
+		Code:    nil,
+		Nonce:   0,
+		Storage: make(map[common.Hash]common.Hash),
+	}
+	db.dirtyState[address] = state
+
+	return state
+}
+
+func (db *ForkDB) setState(address common.Address, state State) {
+	db.dirtyState[address] = state
 }
 
 func (db *ForkDB) GetTransientState(addr common.Address, key common.Hash) common.Hash {
@@ -41,14 +94,35 @@ func (db *ForkDB) AddBalance(addr common.Address, amount *uint256.Int, reason tr
 }
 
 func (db *ForkDB) GetBalance(addr common.Address) *uint256.Int {
-	// Implement the method logic
-	return nil // Placeholder return
+	state := db.getOrCreateState(addr)
+	if state.Balance != nil {
+		return uint256.MustFromBig(state.Balance)
+	}
+
+	bal, err := db.client.BalanceAt(db.ctx, addr, nil)
+	if err != nil {
+		panic(err)
+	}
+	state.Balance = bal
+	db.setState(addr, state)
+	return uint256.MustFromBig(bal) // Placeholder return
 }
 
 // Nonce related methods
 func (db *ForkDB) GetNonce(addr common.Address) uint64 {
-	// Implement the method logic
-	return 0 // Placeholder return
+	fmt.Println("StateDB: GetNonce: ", addr)
+	state := db.getOrCreateState(addr)
+	if state.Nonce != 0 {
+		return state.Nonce
+	}
+
+	nonce, err := db.client.NonceAt(db.ctx, addr, nil)
+	if err != nil {
+		panic(err)
+	}
+	state.Nonce = nonce
+	db.setState(addr, state)
+	return nonce // Placeholder return
 }
 
 func (db *ForkDB) SetNonce(addr common.Address, nonce uint64) {
@@ -62,12 +136,26 @@ func (db *ForkDB) GetCodeHash(addr common.Address) common.Hash {
 }
 
 func (db *ForkDB) GetCode(addr common.Address) []byte {
-	// Implement the method logic
-	return nil // Placeholder return
+	fmt.Println("StateDB: GetCode: ", addr)
+	state := db.getOrCreateState(addr)
+	if len(state.Code) != 0 {
+		return state.Code
+	}
+
+	code, err := db.client.CodeAt(db.ctx, addr, nil)
+	if err != nil {
+		panic(err)
+	}
+	state.Code = code
+	db.setState(addr, state)
+	return code // Placeholder return
 }
 
 func (db *ForkDB) SetCode(addr common.Address, code []byte) {
-	// Implement the method logic
+	fmt.Println("StateDB: SetCode: ", addr, code)
+	state := db.getOrCreateState(addr)
+	state.Code = code
+	db.setState(addr, state)
 }
 
 func (db *ForkDB) GetCodeSize(addr common.Address) int {
@@ -96,12 +184,27 @@ func (db *ForkDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 }
 
 func (db *ForkDB) GetState(addr common.Address, hash common.Hash) common.Hash {
-	// Implement the method logic
-	return common.Hash{} // Placeholder return
+	fmt.Println("StateDB: GetState: ", addr)
+	state := db.getOrCreateState(addr)
+	if val, ok := state.Storage[hash]; ok {
+		return val
+	}
+
+	str, err := db.client.StorageAt(db.ctx, addr, hash, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	state.Storage[hash] = common.Hash(str)
+	db.setState(addr, state)
+	return state.Storage[hash] // Placeholder return
 }
 
 func (db *ForkDB) SetState(addr common.Address, key common.Hash, value common.Hash) {
-	// Implement the method logic
+	fmt.Println("StateDB: SetState: ", addr)
+	state := db.getOrCreateState(addr)
+	state.Storage[key] = value
+	db.setState(addr, state)
 }
 
 func (db *ForkDB) GetStorageRoot(addr common.Address) common.Hash {
@@ -125,8 +228,8 @@ func (db *ForkDB) Selfdestruct6780(addr common.Address) {
 
 // Existence and emptiness checks
 func (db *ForkDB) Exist(addr common.Address) bool {
-	// Implement the method logic
-	return false // Placeholder return
+	db.getOrCreateState(addr)
+	return true // Placeholder return
 }
 
 func (db *ForkDB) Empty(addr common.Address) bool {
