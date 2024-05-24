@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie/utils"
@@ -29,7 +30,7 @@ type ForkDB struct {
 }
 
 func (f *ForkDB) Dump() {
-	v, _ := json.Marshal(f.dirtyState)
+	v, _ := json.MarshalIndent(f.dirtyState, "", "    ")
 	fmt.Println(string(v))
 }
 
@@ -77,20 +78,32 @@ func (db *ForkDB) SetTransientState(addr common.Address, key, value common.Hash)
 
 // Account related methods
 func (db *ForkDB) CreateAccount(addr common.Address) {
-	// Implement the method logic
+	fmt.Println("unimplemented CreateAccount()")
 }
 
 func (db *ForkDB) CreateContract(addr common.Address) {
-	// Implement the method logic
+	fmt.Println("unimplemented CreateContract()")
 }
 
 // Balance related methods
 func (db *ForkDB) SubBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) {
-	// Implement the method logic
+	state := db.getOrCreateState(addr)
+	if state.Balance == nil {
+		state.Balance = db.GetBalance(addr).ToBig()
+	}
+
+	state.Balance = new(big.Int).Sub(state.Balance, amount.ToBig())
+	db.setState(addr, state)
 }
 
 func (db *ForkDB) AddBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) {
-	// Implement the method logic
+	state := db.getOrCreateState(addr)
+	if state.Balance == nil {
+		state.Balance = db.GetBalance(addr).ToBig()
+	}
+
+	state.Balance = new(big.Int).Add(state.Balance, amount.ToBig())
+	db.setState(addr, state)
 }
 
 func (db *ForkDB) GetBalance(addr common.Address) *uint256.Int {
@@ -126,13 +139,12 @@ func (db *ForkDB) GetNonce(addr common.Address) uint64 {
 }
 
 func (db *ForkDB) SetNonce(addr common.Address, nonce uint64) {
-	// Implement the method logic
+	fmt.Println("unimplemented SetNonce()")
 }
 
 // Code related methods
 func (db *ForkDB) GetCodeHash(addr common.Address) common.Hash {
-	// Implement the method logic
-	return common.Hash{} // Placeholder return
+	return crypto.Keccak256Hash(db.GetCode(addr)) // Placeholder return
 }
 
 func (db *ForkDB) GetCode(addr common.Address) []byte {
@@ -159,21 +171,20 @@ func (db *ForkDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (db *ForkDB) GetCodeSize(addr common.Address) int {
-	// Implement the method logic
-	return 0 // Placeholder return
+	return len(db.GetCode(addr))
 }
 
 // Refund related methods
 func (db *ForkDB) AddRefund(gas uint64) {
-	// Implement the method logic
+	fmt.Println("unimplemented AddRefund()")
 }
 
 func (db *ForkDB) SubRefund(gas uint64) {
-	// Implement the method logic
+	fmt.Println("unimplemented SubRefund()")
 }
 
 func (db *ForkDB) GetRefund() uint64 {
-	// Implement the method logic
+	fmt.Println("unimplemented GetRefund()")
 	return 0 // Placeholder return
 }
 
@@ -208,22 +219,22 @@ func (db *ForkDB) SetState(addr common.Address, key common.Hash, value common.Ha
 }
 
 func (db *ForkDB) GetStorageRoot(addr common.Address) common.Hash {
-	// Implement the method logic
+	fmt.Println("unimplemented AddressInAccessList()")
 	return common.Hash{} // Placeholder return
 }
 
 // Self-destruct related methods
 func (db *ForkDB) SelfDestruct(addr common.Address) {
-	// Implement the method logic
+	fmt.Println("unimplemented AddressInAccessList()")
 }
 
 func (db *ForkDB) HasSelfDestructed(addr common.Address) bool {
-	// Implement the method logic
+	fmt.Println("unimplemented AddressInAccessList()")
 	return false // Placeholder return
 }
 
 func (db *ForkDB) Selfdestruct6780(addr common.Address) {
-	// Implement the method logic
+	fmt.Println("unimplemented AddressInAccessList()")
 }
 
 // Existence and emptiness checks
@@ -233,27 +244,27 @@ func (db *ForkDB) Exist(addr common.Address) bool {
 }
 
 func (db *ForkDB) Empty(addr common.Address) bool {
-	// Implement the method logic
+	fmt.Println("unimplemented AddressInAccessList()")
 	return true // Placeholder return
 }
 
 // Access list methods
 func (db *ForkDB) AddressInAccessList(addr common.Address) bool {
-	// Implement the method logic
+	fmt.Println("unimplemented AddressInAccessList()")
 	return false // Placeholder return
 }
 
 func (db *ForkDB) SlotInAccessList(addr common.Address, slot common.Hash) (addressOk bool, slotOk bool) {
-	// Implement the method logic
+	fmt.Println("unimplemented AddAddressToAccessList()")
 	return false, false // Placeholder return
 }
 
 func (db *ForkDB) AddAddressToAccessList(addr common.Address) {
-	// Implement the method logic
+	fmt.Println("unimplemented AddAddressToAccessList()")
 }
 
 func (db *ForkDB) AddSlotToAccessList(addr common.Address, slot common.Hash) {
-	// Implement the method logic
+	fmt.Println("unimplemented AddSlotToAccessList()")
 }
 
 // Snapshot methods
@@ -268,25 +279,25 @@ func (db *ForkDB) Prepare(
 }
 
 func (db *ForkDB) RevertToSnapshot(id int) {
-	// Implement the method logic
+	fmt.Println("RevertToSnapshot(id int)")
 }
 
 func (db *ForkDB) Snapshot() int {
-	// Implement the method logic
+	fmt.Println("unimplemented Snapshot()")
 	return 0 // Placeholder return
 }
 
 // Log and preimage methods
 func (db *ForkDB) AddLog(log *types.Log) {
-	// Implement the method logic
+	fmt.Println("unimplemented AddLog()")
 }
 
 func (db *ForkDB) AddPreimage(hash common.Hash, data []byte) {
-	// Implement the method logic
+	fmt.Println("unimplemented AddPreimage()")
 }
 
 // Point cache method
 func (db *ForkDB) PointCache() *utils.PointCache {
-	// Implement the method logic
+	fmt.Println("unimplemented PointCache()")
 	return nil // Placeholder return
 }
