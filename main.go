@@ -15,7 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-	"github.com/rahul0tripathi/smelter/forkdb"
+	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/rahul0tripathi/smelter/fork"
+	"github.com/rahul0tripathi/smelter/provider"
+	"github.com/rahul0tripathi/smelter/statedb"
 	types2 "github.com/rahul0tripathi/smelter/types"
 	"github.com/rahul0tripathi/smelter/vm"
 )
@@ -65,18 +68,6 @@ func fn(ref *types.Header, chain core.ChainContext) func(n uint64) common.Hash {
 
 // CanTransfer checks whether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
-func CanTransfer(db vm.StateDB, addr common.Address, amount *uint256.Int) bool {
-	fmt.Println("can transfer", addr, amount.String())
-	//return db.GetBalance(addr).Cmp(amount) >= 0
-	return true
-}
-
-// Transfer subtracts amount from sender and adds amount to recipient using the given Db
-func Transfer(db vm.StateDB, sender, recipient common.Address, amount *uint256.Int) {
-	fmt.Println("transfer called", sender, recipient, amount.String())
-	//db.SubBalance(sender, amount, tracing.BalanceChangeTransfer)
-	//db.AddBalance(recipient, amount, tracing.BalanceChangeTransfer)
-}
 
 type Config struct {
 	ChainConfig *params.ChainConfig
@@ -152,16 +143,34 @@ func setDefaults(cfg *Config) {
 
 func main() {
 	cfg := Config{}
+	ctx := context.Background()
 	setDefaults(&cfg)
 
 	fmt.Println("hello world ")
 
-	sender := types2.Address0x1
+	sender := types2.Address0x
 	cfg.Origin = sender
-	db, err := forkdb.NewForkDB(context.Background(), "wss://arbitrum-one.publicnode.com")
+
+	reader, err := provider.NewJsonRPCProvider("")
 	if err != nil {
 		panic(err)
 	}
+
+	forkBlock, err := reader.BlockNumber(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	accountsState := entity.NewAccountsState()
+	accountsStorage := entity.NewAccountsStorage()
+
+	forkCfg := entity.ForkConfig{
+		ChainID:   42161,
+		ForkBlock: new(big.Int).SetUint64(forkBlock),
+	}
+
+	db := fork.NewDB(reader, forkCfg, accountsStorage, accountsState)
+
 	tracer := tracing.Hooks{
 		OnTxStart: func(vm *tracing.VMContext, tx *types.Transaction, from common.Address) {
 			fmt.Println("Transaction Start:", tx)
@@ -170,10 +179,11 @@ func main() {
 			fmt.Println("Transaction End:", receipt, receipt)
 		},
 		OnEnter: func(depth int, op byte, from, to common.Address, input []byte, gas uint64, value *big.Int) {
-			fmt.Println("Enter:", depth, op, from, to, input, gas, value)
+			fmt.Println("Enter:", depth, op, from, to, hexutil.Encode(input), gas, value)
 		},
 		OnExit: func(depth int, output []byte, gasUsed uint64, err error, reverted bool) {
-			fmt.Println("Exit:", depth, output, gasUsed, err, reverted)
+
+			fmt.Println("Exit:", depth, hexutil.Encode(output), gasUsed, err, reverted)
 		},
 		OnOpcode: func(
 			pc uint64,
@@ -184,13 +194,14 @@ func main() {
 			depth int,
 			err error,
 		) {
-			fmt.Println("Opcode:", pc, op, gas, cost, scope, rData, depth, err)
+			fmt.Println(fmt.Sprintf("{%d} %s ====> %s ( %s ) [%s]", pc, scope.Caller().Hex(), scope.Address().Hex(), hexutil.Encode(scope.CallInput()), scope.CallValue().String()))
 		},
 		OnFault: func(pc uint64, op byte, gas, cost uint64, scope tracing.OpContext, depth int, err error) {
-			fmt.Println("Fault:", pc, op, gas, cost, scope, depth, err)
+			fmt.Println(fmt.Sprintf("FAULT {%d} %s ====> %s ( %s ) [%s]", pc, scope.Caller().Hex(), scope.Address().Hex(), hexutil.Encode(scope.CallInput()), scope.CallValue().String()))
+
 		},
 		OnGasChange: func(prevGas, newGas uint64, reason tracing.GasChangeReason) {
-			fmt.Println("Gas Change:", prevGas, newGas, reason)
+			//fmt.Println("Gas Change:", prevGas, newGas, reason)
 		},
 		OnBlockchainInit: func(chainConfig *params.ChainConfig) {
 			fmt.Println("Blockchain Init:", chainConfig)
@@ -249,8 +260,8 @@ func main() {
 	}
 
 	blockContext := vm.BlockContext{
-		CanTransfer: CanTransfer,
-		Transfer:    Transfer,
+		CanTransfer: vm.CanTransfer,
+		Transfer:    vm.Transfer,
 		GetHash:     GetHash,
 		Coinbase:    cfg.Coinbase,
 		BlockNumber: cfg.BlockNumber,
@@ -261,30 +272,45 @@ func main() {
 		BlobBaseFee: cfg.BlobBaseFee,
 		Random:      nil,
 	}
+
 	senderRef := vm.AccountRef(cfg.Origin)
-	/// arb weth
-	target := common.HexToAddress("0x82af49447d8a07e3bd95bd0d56f35241523fbab1")
-	vmenv := vm.NewEVM(blockContext, txContext, db, cfg.ChainConfig, cfg.EVMConfig)
-	data, _ := hexutil.Decode("0xd0e30db0")
+
+	target := types2.Address0x1
+	balBef, err := db.GetBalance(ctx, target)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("balance BEFORE", balBef.String())
+
+	stateDB := statedb.NewDB(ctx, db)
+
+	vmenv := vm.NewEVM(blockContext, txContext, stateDB, cfg.ChainConfig, cfg.EVMConfig)
+	data, _ := hexutil.Decode("0x")
 	ret, leftOverGas, err := vmenv.Call(
 		senderRef,
 		target,
 		data,
 		30000000,
-		uint256.MustFromBig(new(big.Int).SetInt64(1000000)),
-	)
-	fmt.Println(ret, leftOverGas, err)
-
-	readBal, _ := hexutil.Decode("0x70a082310000000000000000000000000000000000000000000000000000000000000001")
-
-	balance, _, err := vmenv.Call(
-		senderRef,
-		target,
-		readBal,
-		30000000,
 		uint256.MustFromBig(new(big.Int).SetInt64(0)),
 	)
+	fmt.Println(hexutil.Encode(ret), leftOverGas, err)
 
-	fmt.Println(new(big.Int).SetBytes(balance).String(), err)
-	//db.Dump()
+	//readBal, _ := hexutil.Decode("")
+	//
+	//balance, _, err := vmenv.Call(
+	//	senderRef,
+	//	target,
+	//	readBal,
+	//	30000000,
+	//	uint256.MustFromBig(new(big.Int).SetInt64(0)),
+	//)
+
+	db.ApplyStorage(stateDB.Dirty().GetAccountStorage())
+	db.ApplyState(stateDB.Dirty().GetAccountState())
+
+	balAft, err := db.GetBalance(ctx, target)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("balance AFTER", balAft.String())
 }
