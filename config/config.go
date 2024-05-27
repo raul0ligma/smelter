@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/rahul0tripathi/smelter/entity"
 	"github.com/rahul0tripathi/smelter/vm"
 )
 
@@ -31,8 +32,9 @@ type Config struct {
 	BlobFeeCap  *big.Int
 	Random      *common.Hash
 
-	State     *state.StateDB
-	GetHashFn func(n uint64) common.Hash
+	State      *state.StateDB
+	GetHashFn  func(n uint64) common.Hash
+	ForkConfig *entity.ForkConfig
 }
 
 func (c *Config) TxCtx(origin common.Address) vm.TxContext {
