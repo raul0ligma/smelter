@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"fmt"
 	"maps"
 	"math/big"
 	"sync"
@@ -215,7 +214,7 @@ func (a *AccountsState) SetBalance(addr common.Address, bal *big.Int) {
 	if !ok || !s.Initialized {
 		return
 	}
-	fmt.Println("set balance", addr.Hex(), bal.String())
+
 	s.Balance = bal
 }
 
