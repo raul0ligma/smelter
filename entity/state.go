@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
+type Storage map[common.Hash]common.Hash
+
 type ByteCode []byte
 
 func (b ByteCode) MarshalJSON() ([]byte, error) {
@@ -16,9 +18,9 @@ func (b ByteCode) MarshalJSON() ([]byte, error) {
 }
 
 type AccountStorage struct {
-	Code        []byte                      `json:"code"`
-	Initialized bool                        `json:"initialized"`
-	Slots       map[common.Hash]common.Hash `json:"slots"`
+	Code        []byte  `json:"code"`
+	Initialized bool    `json:"initialized"`
+	Slots       Storage `json:"slots"`
 }
 
 type AccountsStorage struct {
@@ -288,3 +290,11 @@ func (a *AccountsState) Apply(s *AccountsState) {
 		existing.Nonce = storage.Nonce
 	}
 }
+
+type StateOverride struct {
+	Code    []byte   `json:"code"`
+	Balance *big.Int `json:"balance"`
+	Storage Storage  `json:"storage"`
+}
+
+type StateOverrides map[common.Address]StateOverride

@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	EmptyHash   = common.Hash{}
-	EmptyKeccak = common.Hash{
+	emptyHash   = common.Hash{}
+	emptyKeccak = common.Hash{
 		0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d, 0xb2, 0xdc, 0xc7, 0x03, 0xc0,
 		0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82, 0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04, 0x5d, 0x85, 0xa4, 0x70,
 	}
@@ -171,7 +171,7 @@ func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	}
 
 	storage := s.dirty.GetAccountStorage().ReadStorage(addr, hash)
-	if storage != EmptyHash {
+	if storage != emptyHash {
 		return storage
 	}
 
@@ -223,7 +223,7 @@ func (s *StateDB) Empty(addr common.Address) bool {
 	}
 	return (s.dirty.GetAccountState().GetBalance(addr) == nil || s.dirty.GetAccountState().GetBalance(addr).Uint64() == 0) &&
 		s.dirty.GetAccountState().GetNonce(addr) == 0 &&
-		(s.GetCodeHash(addr) == EmptyKeccak || s.GetCodeHash(addr) == EmptyHash)
+		(s.GetCodeHash(addr) == emptyKeccak || s.GetCodeHash(addr) == emptyHash)
 }
 
 func (s *StateDB) AddressInAccessList(addr common.Address) bool {
@@ -279,4 +279,26 @@ func (s *StateDB) PointCache() *utils.PointCache {
 
 func (s *StateDB) Dirty() *entity.DirtyState {
 	return s.dirty
+}
+
+func (s *StateDB) ApplyOverrides(overrides entity.StateOverrides) error {
+	for addr, override := range overrides {
+		if err := s.load(addr); err != nil {
+			return err
+		}
+
+		if override.Balance != nil {
+			s.dirty.GetAccountState().SetBalance(addr, override.Balance)
+		}
+
+		if len(override.Code) != 0 {
+			s.dirty.GetAccountStorage().SetCode(addr, override.Code)
+		}
+
+		for k, v := range override.Storage {
+			s.dirty.GetAccountStorage().SetStorage(addr, k, v)
+		}
+	}
+
+	return nil
 }

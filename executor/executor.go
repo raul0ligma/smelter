@@ -35,12 +35,16 @@ func (e *SerialExecutor) Exec(
 	ctx context.Context,
 	tx ethereum.CallMsg,
 	hooks *tracing.Hooks,
+	overrides entity.StateOverrides,
 ) (ret []byte, leftOverGas uint64, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	// TODO: use block from state
 	executionDB := statedb.NewDB(ctx, e.db)
 	chainCfg, evmCfg := e.cfg.ExecutionConfig(hooks)
+	if err = executionDB.ApplyOverrides(overrides); err != nil {
+		return nil, 0, err
+	}
 
 	env := vm.NewEVM(e.cfg.BlockContext(new(big.Int).Add(e.cfg.ForkConfig.ForkBlock, new(big.Int).SetUint64(1)),
 		new(big.Int),
@@ -71,13 +75,17 @@ func (e *SerialExecutor) Simulate(
 	ctx context.Context,
 	tx ethereum.CallMsg,
 	hooks *tracing.Hooks,
+	overrides entity.StateOverrides,
 ) (ret []byte, leftOverGas uint64, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	// TODO: use block from state
 	executionDB := statedb.NewDB(ctx, e.db)
-	chainCfg, evmCfg := e.cfg.ExecutionConfig(hooks)
+	if err = executionDB.ApplyOverrides(overrides); err != nil {
+		return nil, 0, err
+	}
 
+	chainCfg, evmCfg := e.cfg.ExecutionConfig(hooks)
 	env := vm.NewEVM(e.cfg.BlockContext(new(big.Int).Add(e.cfg.ForkConfig.ForkBlock, new(big.Int).SetUint64(1)),
 		new(big.Int),
 		uint64(time.Now().Unix())),
