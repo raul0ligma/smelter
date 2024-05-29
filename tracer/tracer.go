@@ -98,7 +98,16 @@ func (l *LogTracer) Hooks() *tracing.Hooks {
 			depth int,
 			err error,
 		) {
-
+			if l.logOP {
+				l.Logs = append(l.Logs, TraceLog{
+					Type:  "OP",
+					Depth: l.currentDepth,
+					From:  "",
+					To:    "",
+					Text:  fmt.Sprintf("PC: %d OP: %s GAS: %d COST %d DEPTH: %d rDATA: %s err: %+v", pc, opCodeToString[op], gas, cost, depth, hexutil.Encode(rData), err),
+					Value: "",
+				})
+			}
 		},
 		OnFault: func(pc uint64, op byte, gas, cost uint64, scope tracing.OpContext, depth int, err error) {
 			l.Logs = append(l.Logs, TraceLog{
