@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -24,11 +25,17 @@ var (
 	}
 )
 
+type snapshot struct {
+	storage entity.AccountsStorageCache
+	state   entity.AccountStateStorage
+}
 type StateDB struct {
 	ctx        context.Context
 	db         forkDB
 	dirty      *entity.DirtyState
 	errorStack []error
+	snapshots  map[uint64]snapshot
+	counter    uint64
 }
 
 func NewDB(ctx context.Context, db forkDB) *StateDB {
@@ -37,6 +44,7 @@ func NewDB(ctx context.Context, db forkDB) *StateDB {
 		db:         db,
 		dirty:      entity.NewDirtyState(),
 		errorStack: make([]error, 0),
+		snapshots:  map[uint64]snapshot{},
 	}
 }
 
@@ -256,12 +264,24 @@ func (s *StateDB) Prepare(
 }
 
 func (s *StateDB) RevertToSnapshot(id int) {
-	s.errorStack = append(s.errorStack, errors.New("unimplemented RevertToSnapshot()"))
+	cached, ok := s.snapshots[uint64(id)]
+	if !ok {
+		s.errorStack = append(s.errorStack, fmt.Errorf("failed to revert to snapshot %d", id))
+		return
+	}
+
+	s.dirty.GetAccountState().Set(cached.state)
+	s.dirty.GetAccountStorage().Set(cached.storage)
 }
 
 func (s *StateDB) Snapshot() int {
-	s.errorStack = append(s.errorStack, errors.New("unimplemented Snapshot()"))
-	return 0 // Placeholder return
+	atomic.AddUint64(&s.counter, 1)
+	s.snapshots[s.counter] = snapshot{
+		storage: s.dirty.GetAccountStorage().Clone(),
+		state:   s.dirty.GetAccountState().Clone(),
+	}
+
+	return int(s.counter) // Placeholder return
 }
 
 func (s *StateDB) AddLog(log *types.Log) {

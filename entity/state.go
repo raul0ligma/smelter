@@ -22,10 +22,10 @@ type AccountStorage struct {
 	Initialized bool    `json:"initialized"`
 	Slots       Storage `json:"slots"`
 }
-
+type AccountsStorageCache map[common.Address]*AccountStorage
 type AccountsStorage struct {
 	mu   sync.RWMutex
-	data map[common.Address]*AccountStorage
+	data AccountsStorageCache
 }
 
 func NewAccountsStorage() *AccountsStorage {
@@ -103,6 +103,25 @@ func (a *AccountsStorage) GetCode(addr common.Address) []byte {
 	return s.Code
 }
 
+func (a *AccountsStorage) Clone() AccountsStorageCache {
+	clone := map[common.Address]*AccountStorage{}
+	for key, v := range a.data {
+		slots := make(map[common.Hash]common.Hash)
+		maps.Copy(slots, v.Slots)
+		clone[key] = &AccountStorage{
+			Code:        v.Code,
+			Initialized: v.Initialized,
+			Slots:       slots,
+		}
+	}
+
+	return clone
+}
+
+func (a *AccountsStorage) Set(s map[common.Address]*AccountStorage) {
+	a.data = s
+}
+
 func (a *AccountsStorage) NewAccount(addr common.Address, code []byte) *AccountStorage {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -170,15 +189,34 @@ type AccountState struct {
 	// we ignore code codeHash storageRoot as we directly read them from AccountsStorage
 }
 
+type AccountStateStorage map[common.Address]*AccountState
 type AccountsState struct {
 	mu   sync.RWMutex
-	data map[common.Address]*AccountState
+	data AccountStateStorage
 }
 
 func NewAccountsState() *AccountsState {
 	return &AccountsState{
 		data: make(map[common.Address]*AccountState),
 	}
+}
+
+func (a *AccountsState) Clone() AccountStateStorage {
+	clone := map[common.Address]*AccountState{}
+	for k, v := range a.data {
+		clone[k] = &AccountState{
+			Address:     v.Address,
+			Balance:     new(big.Int).Set(v.Balance),
+			Nonce:       v.Nonce,
+			Initialized: true,
+		}
+	}
+
+	return clone
+}
+
+func (a *AccountsState) Set(s AccountStateStorage) {
+	a.data = s
 }
 
 func (a *AccountsState) Exists(addr common.Address) bool {
