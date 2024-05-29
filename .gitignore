@@ -24,4 +24,4 @@ go.work.sum
 .idea
 
 _bin/
-local_test.go
+exec_test.go.go
