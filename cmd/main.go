@@ -1,6 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+
+	"github.com/rahul0tripathi/smelter/app"
+)
 
 func main() {
 	fmt.Println(`
@@ -10,4 +15,8 @@ func main() {
 	╚════██║██║╚██╔╝██║██╔══╝  ██║     ██║   ██╔══╝  ██╔══██╗
 	███████║██║ ╚═╝ ██║███████╗███████╗██║   ███████╗██║  ██║
 	╚══════╝╚═╝     ╚═╝╚══════╝╚══════╝╚═╝   ╚══════╝╚═╝  ╚═╝`)
+	err := app.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
