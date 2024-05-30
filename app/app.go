@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"unicode"
 
+	"github.com/rahul0tripathi/go-jsonrpc"
 	"github.com/rahul0tripathi/smelter/controller"
 	"github.com/rahul0tripathi/smelter/pkg/log"
 	"github.com/rahul0tripathi/smelter/pkg/server"
@@ -27,8 +29,15 @@ func Run() error {
 	httpserver := server.New(":6969", logger)
 
 	rpcService := &services.Rpc{}
+	rpcServer := jsonrpc.NewServer(jsonrpc.WithNamespaceSeparator("_"), jsonrpc.WithMethodTransformer(func(s string) string {
+		r := []rune(s)
+		r[0] = unicode.ToLower(r[0])
+		return string(r)
+	}))
 
-	controller.SetupRouter(httpserver.Router(), rpcService, logger)
+	rpcServer.Register("eth", rpcService)
+
+	controller.SetupRouter(httpserver.Router(), rpcServer, logger)
 
 	httpserver.Start()
 
