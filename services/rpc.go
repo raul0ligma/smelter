@@ -2,20 +2,19 @@ package services
 
 import (
 	"context"
+	"math/big"
 
-	"github.com/rahul0tripathi/smelter/entity"
-	"github.com/rahul0tripathi/smelter/pkg/log"
-	"go.uber.org/zap"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type Rpc struct {
+	executor executor
 }
 
-func (r *Rpc) HandleRPCRequest(
-	ctx context.Context,
-	logger log.Logger,
-	message *entity.JsonrpcMessage,
-) *entity.JsonrpcMessage {
-	logger.Info("message received", zap.Any("message", message))
-	return entity.EmptyJsonMessage(message)
+func NewRpcService(executor executor) *Rpc {
+	return &Rpc{executor: executor}
+}
+
+func (r *Rpc) ChainId(ctx context.Context) string {
+	return hexutil.Encode(new(big.Int).SetInt64(69).Bytes())
 }
