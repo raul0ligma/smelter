@@ -38,7 +38,7 @@ func TestExecuteE2E(t *testing.T) {
 
 	// Deposit transaction
 	deposit, _ := hexutil.Decode("0xd0e30db0")
-	ret, _, err := exec.Exec(ctx, ethereum.CallMsg{
+	ret, _, err := exec.CallAndPersist(ctx, ethereum.CallMsg{
 		From:  sender,
 		To:    &target,
 		Data:  deposit,
@@ -52,7 +52,7 @@ func TestExecuteE2E(t *testing.T) {
 
 	// Check balance of sender before transfer
 	balanceOfx06, _ := hexutil.Decode("0x70a082310000000000000000000000000000000000000000000000000000000000000006")
-	ret, _, err = exec.Simulate(ctx, ethereum.CallMsg{
+	ret, _, err = exec.Call(ctx, ethereum.CallMsg{
 		From:  sender,
 		To:    &target,
 		Data:  balanceOfx06,
@@ -65,7 +65,7 @@ func TestExecuteE2E(t *testing.T) {
 	// Transfer transaction
 	stateTracer = tracer.NewTracer(true)
 	transferCall, _ := hexutil.Decode("0xa9059cbb00000000000000000000000000000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000001b37")
-	ret, _, err = exec.Exec(ctx, ethereum.CallMsg{
+	ret, _, err = exec.CallAndPersist(ctx, ethereum.CallMsg{
 		From:  sender,
 		To:    &target,
 		Data:  transferCall,
@@ -79,7 +79,7 @@ func TestExecuteE2E(t *testing.T) {
 
 	// Check balance of recipient after transfer
 	balanceOfx07, _ := hexutil.Decode("0x70a082310000000000000000000000000000000000000000000000000000000000000007")
-	ret, _, err = exec.Simulate(ctx, ethereum.CallMsg{
+	ret, _, err = exec.Call(ctx, ethereum.CallMsg{
 		From:  sender,
 		To:    &target,
 		Data:  balanceOfx07,
@@ -90,7 +90,7 @@ func TestExecuteE2E(t *testing.T) {
 	require.Equal(t, new(big.Int).SetBytes(ret).Int64(), int64(6967), "invalid 0x7 balance received post transfer")
 
 	// Check balance of sender after transfer
-	ret, _, err = exec.Simulate(ctx, ethereum.CallMsg{
+	ret, _, err = exec.Call(ctx, ethereum.CallMsg{
 		From:  sender,
 		To:    &target,
 		Data:  balanceOfx06,

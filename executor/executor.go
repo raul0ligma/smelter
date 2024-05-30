@@ -31,7 +31,7 @@ func NewExecutor(cfg *config.Config, db *fork.DB, provider entity.ChainStateRead
 	}
 }
 
-func (e *SerialExecutor) Exec(
+func (e *SerialExecutor) CallAndPersist(
 	ctx context.Context,
 	tx ethereum.CallMsg,
 	hooks *tracing.Hooks,
@@ -71,7 +71,7 @@ func (e *SerialExecutor) Exec(
 	return
 }
 
-func (e *SerialExecutor) Simulate(
+func (e *SerialExecutor) Call(
 	ctx context.Context,
 	tx ethereum.CallMsg,
 	hooks *tracing.Hooks,
