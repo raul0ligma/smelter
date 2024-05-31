@@ -8,13 +8,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/rahul0tripathi/smelter/entity"
 )
 
 type mockProvider struct {
 }
 
 func (m *mockProvider) BlockNumber(ctx context.Context) (uint64, error) {
-	return 0, nil
+	return 1, nil
 }
 
 func (m *mockProvider) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
@@ -22,7 +24,7 @@ func (m *mockProvider) BlockByHash(ctx context.Context, hash common.Hash) (*type
 }
 
 func (m *mockProvider) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return &types.Block{}, nil
+	return entity.NewBlock(crypto.Keccak256Hash([]byte("genesis")), new(big.Int).SetInt64(1), nil, nil), nil
 }
 
 func (m *mockProvider) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
