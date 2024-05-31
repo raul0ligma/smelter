@@ -285,7 +285,7 @@ func (s *StateDB) Snapshot() int {
 }
 
 func (s *StateDB) AddLog(log *types.Log) {
-	s.errorStack = append(s.errorStack, errors.New("unimplemented AddLog()"))
+	s.dirty.AddLog(log)
 }
 
 func (s *StateDB) AddPreimage(hash common.Hash, data []byte) {

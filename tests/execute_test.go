@@ -3,12 +3,14 @@ package tests
 import (
 	"context"
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	types2 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/rahul0tripathi/smelter/config"
 	"github.com/rahul0tripathi/smelter/entity"
 	"github.com/rahul0tripathi/smelter/executor"
@@ -32,13 +34,16 @@ func TestExecuteE2E(t *testing.T) {
 	cfg.ForkConfig = &forkCfg
 	stateTracer := tracer.NewTracer(true)
 	target := types.Address0x69
-	exec := executor.NewExecutor(cfg, db, &reader)
+	exec, err := executor.NewExecutor(ctx, cfg, db, &reader)
+	if err != nil {
+		panic(err)
+	}
 
 	sender := common.HexToAddress("0x0000000000000000000000000000000000000006")
 
 	// Deposit transaction
 	deposit, _ := hexutil.Decode("0xd0e30db0")
-	ret, _, err := exec.CallAndPersist(ctx, ethereum.CallMsg{
+	_, ret, _, err := exec.CallAndPersist(ctx, ethereum.CallMsg{
 		From:  sender,
 		To:    &target,
 		Data:  deposit,
@@ -65,7 +70,7 @@ func TestExecuteE2E(t *testing.T) {
 	// Transfer transaction
 	stateTracer = tracer.NewTracer(true)
 	transferCall, _ := hexutil.Decode("0xa9059cbb00000000000000000000000000000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000001b37")
-	ret, _, err = exec.CallAndPersist(ctx, ethereum.CallMsg{
+	_, ret, _, err = exec.CallAndPersist(ctx, ethereum.CallMsg{
 		From:  sender,
 		To:    &target,
 		Data:  transferCall,
@@ -99,4 +104,77 @@ func TestExecuteE2E(t *testing.T) {
 	}, stateTracer.Hooks(), nil)
 	require.NoError(t, err, "failed to read 0x6 balance")
 	require.Equal(t, new(big.Int).SetBytes(ret).Int64(), int64(2), "invalid 0x6 balance received post transfer")
+}
+
+func TestBlockProduction(t *testing.T) {
+	ctx := context.Background()
+	reader := mockProvider{}
+	accountsState := entity.NewAccountsState()
+	accountsStorage := entity.NewAccountsStorage()
+	forkCfg := entity.ForkConfig{
+		ChainID:   69,
+		ForkBlock: new(big.Int).SetUint64(1),
+	}
+	db := fork.NewDB(&reader, forkCfg, accountsStorage, accountsState)
+	cfg := config.NewConfigWithDefaults()
+	cfg.ForkConfig = &forkCfg
+	stateTracer := tracer.NewTracer(true)
+	target := types.Address0x69
+	exec, err := executor.NewExecutor(ctx, cfg, db, &reader)
+	if err != nil {
+		panic(err)
+	}
+
+	sender := common.HexToAddress("0x0000000000000000000000000000000000000006")
+
+	// Deposit transaction
+	deposit, _ := hexutil.Decode("0xd0e30db0")
+	msg := ethereum.CallMsg{
+		From:  sender,
+		To:    &target,
+		Data:  deposit,
+		Gas:   30000000,
+		Value: new(big.Int).SetInt64(6969),
+	}
+	hash, _, _, err := exec.CallAndPersist(ctx, msg, stateTracer.Hooks(), map[common.Address]entity.StateOverride{
+		sender: {Balance: abi.MaxUint256},
+	})
+	require.NoError(t, err, "failed to deposit")
+	t.Log("trace", stateTracer.Fmt())
+
+	require.NotNil(t, hash, "missing tx hash")
+
+	t.Log("transaction Hash", hash.Hex())
+	require.Equal(t, "0xfa652df356f74e065519c07cd5473ba8d26383b7f000f6f06563906b6d3d83e0", hash.Hex(), "mismatch txn hash")
+
+	txn := exec.TxnStorage().GetTransaction(*hash)
+	require.Equal(t, txn.Type(), uint8(0), "invalid txn type")
+	require.Equal(t, *txn.To(), target, "invalid txn target")
+	require.Equal(t, txn.Value().String(), "6969", "invalid txn value")
+	require.Equal(t, txn.Data(), deposit, "invalid txn data")
+
+	receipt := exec.TxnStorage().GetReceipt(*hash)
+
+	require.Equal(t, len(receipt.Logs), 1, "invalid logs emitted")
+	require.Equal(t, receipt.Logs[0].Address, target, "invalid emitter")
+	require.Equal(t, receipt.Logs[0].Topics[0].Hex(), "0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c", "invalid log topic [0]")
+	require.Equal(t, receipt.Logs[0].Topics[1].Hex(), "0x0000000000000000000000000000000000000000000000000000000000000006", "invalid log topic [1]")
+	require.Equal(t, hexutil.Encode(receipt.Logs[0].Data), "0x0000000000000000000000000000000000000000000000000000000000001b39", "invalid log data")
+
+	txnBytes, err := txn.MarshalJSON()
+	require.NoError(t, err, "MarshalJSON")
+	t.Log("transaction", string(txnBytes))
+
+	receiptBytes, err := receipt.MarshalJSON()
+	require.NoError(t, err, "MarshalJSON")
+	t.Log("receipt", string(receiptBytes))
+
+	blockHash, blockNum := exec.Latest()
+	require.Equal(t, blockHash.Hex(), "0x399458e5436fe1e9b8c59fb4358657a1e3a3ab7c1d1e72bde3258c7a525a66b4", "invalid block hash")
+	require.Equal(t, blockNum, uint64(2), "invalid block number")
+
+	block := exec.BlockStorage().GetBlockByHash(blockHash)
+
+	require.True(t, reflect.DeepEqual(block.Transactions(), types2.Transactions{txn}), "invalid txn found uin block")
+	require.Equal(t, block.Number().Uint64(), uint64(2), "invalid block number")
 }
