@@ -60,3 +60,5 @@ func (ts *TransactionStorage) Apply(s *TransactionStorage) {
 		ts.receipts[hash] = v
 	}
 }
+
+type LogStorage []*types.Log

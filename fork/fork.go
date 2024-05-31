@@ -80,6 +80,14 @@ func (db *DB) GetNonce(ctx context.Context, addr common.Address) (uint64, error)
 	return db.accountState.GetNonce(addr), nil
 }
 
+func (db *DB) SetNonce(ctx context.Context, addr common.Address, nonce uint64) error {
+	if err := db.CreateState(ctx, addr); err != nil {
+		return err
+	}
+	db.accountState.SetNonce(addr, nonce)
+	return nil
+}
+
 func (db *DB) GetCodeHash(ctx context.Context, addr common.Address) (common.Hash, error) {
 	code, err := db.GetCode(ctx, addr)
 	if err != nil {

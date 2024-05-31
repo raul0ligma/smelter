@@ -1,18 +1,18 @@
 package entity
 
+import "github.com/ethereum/go-ethereum/core/types"
+
 type DirtyState struct {
-	accountStorage    *AccountsStorage
-	accountState      *AccountsState
-	transactionsState *TransactionStorage
-	blockStorage      *BlockStorage
+	accountStorage *AccountsStorage
+	accountState   *AccountsState
+	logs           LogStorage
 }
 
 func NewDirtyState() *DirtyState {
 	return &DirtyState{
-		accountStorage:    NewAccountsStorage(),
-		accountState:      NewAccountsState(),
-		transactionsState: NewTransactionStorage(),
-		blockStorage:      NewBlockStorage(),
+		accountStorage: NewAccountsStorage(),
+		accountState:   NewAccountsState(),
+		logs:           make(LogStorage, 0),
 	}
 }
 
@@ -24,10 +24,10 @@ func (ds *DirtyState) GetAccountState() *AccountsState {
 	return ds.accountState
 }
 
-func (ds *DirtyState) GetTransactionsState() *TransactionStorage {
-	return ds.transactionsState
+func (ds *DirtyState) AddLog(log *types.Log) {
+	ds.logs = append(ds.logs, log)
 }
 
-func (ds *DirtyState) GetBlockStorage() *BlockStorage {
-	return ds.blockStorage
+func (ds *DirtyState) Logs() LogStorage {
+	return ds.logs
 }
