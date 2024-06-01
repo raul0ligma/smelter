@@ -23,6 +23,7 @@ type AccountStorage struct {
 	Slots       Storage `json:"slots"`
 }
 type AccountsStorageCache map[common.Address]*AccountStorage
+
 type AccountsStorage struct {
 	mu   sync.RWMutex
 	data AccountsStorageCache
@@ -31,6 +32,12 @@ type AccountsStorage struct {
 func NewAccountsStorage() *AccountsStorage {
 	return &AccountsStorage{
 		data: make(map[common.Address]*AccountStorage),
+	}
+}
+
+func NewAccountsStorageWitStorage(data AccountsStorageCache) *AccountsStorage {
+	return &AccountsStorage{
+		data: data,
 	}
 }
 
@@ -190,6 +197,7 @@ type AccountState struct {
 }
 
 type AccountStateStorage map[common.Address]*AccountState
+
 type AccountsState struct {
 	mu   sync.RWMutex
 	data AccountStateStorage
@@ -198,6 +206,12 @@ type AccountsState struct {
 func NewAccountsState() *AccountsState {
 	return &AccountsState{
 		data: make(map[common.Address]*AccountState),
+	}
+}
+
+func NewAccountsStateWithStorage(data AccountStateStorage) *AccountsState {
+	return &AccountsState{
+		data: data,
 	}
 }
 
