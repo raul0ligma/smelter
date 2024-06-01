@@ -173,8 +173,8 @@ func TestBlockProduction(t *testing.T) {
 	require.Equal(t, blockHash.Hex(), "0x399458e5436fe1e9b8c59fb4358657a1e3a3ab7c1d1e72bde3258c7a525a66b4", "invalid block hash")
 	require.Equal(t, blockNum, uint64(2), "invalid block number")
 
-	block := exec.BlockStorage().GetBlockByHash(blockHash)
+	state := exec.BlockStorage().GetBlockByHash(blockHash)
 
-	require.True(t, reflect.DeepEqual(block.Transactions(), types2.Transactions{txn}), "invalid txn found uin block")
-	require.Equal(t, block.Number().Uint64(), uint64(2), "invalid block number")
+	require.True(t, reflect.DeepEqual(state.Block.Transactions(), types2.Transactions{txn}), "invalid txn found uin block")
+	require.Equal(t, state.Block.Number().Uint64(), uint64(2), "invalid block number")
 }
