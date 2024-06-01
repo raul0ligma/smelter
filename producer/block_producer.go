@@ -26,6 +26,7 @@ func MineBlockWithSignleTransaction(
 	prevBlockNumber *big.Int,
 	prevBlockHash common.Hash,
 	db postExecutionStateFetcher,
+	fork forkDB,
 	txStore transactionStorage,
 	blockStore blockStorage,
 ) (common.Hash, *big.Int, error) {
@@ -49,6 +50,13 @@ func MineBlockWithSignleTransaction(
 	receipt.BlockHash = block.Hash()
 	txStore.AddTransaction(tx)
 	txStore.AddReceipt(receipt)
-	blockStore.AddBlock(block)
+
+	accounts, state := fork.Copy()
+	blockStore.AddBlock(&entity.BlockState{
+		Accounts: accounts,
+		State:    state,
+		Block:    block,
+	})
+
 	return block.Hash(), blockNumber, nil
 }
