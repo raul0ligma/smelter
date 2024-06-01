@@ -61,15 +61,17 @@ func TestBlockStorage_AddAndGetBlock(t *testing.T) {
 	block := NewBlock(prevHash, blockNumber, transactions, receipts)
 
 	// Add the block to storage
-	storage.AddBlock(block)
+	storage.AddBlock(&BlockState{
+		Block: block,
+	})
 
 	// Retrieve the block by number
 	retrievedBlock := storage.GetBlockByNumber(block.NumberU64())
 	if retrievedBlock == nil {
 		t.Fatalf("Expected block, got nil")
 	}
-	if retrievedBlock.Hash() != block.Hash() {
-		t.Fatalf("Expected block hash %s, got %s", block.Hash().Hex(), retrievedBlock.Hash().Hex())
+	if retrievedBlock.Block.Hash() != block.Hash() {
+		t.Fatalf("Expected block hash %s, got %s", block.Hash().Hex(), retrievedBlock.Block.Hash().Hex())
 	}
 
 	// Retrieve the block by hash
@@ -77,8 +79,8 @@ func TestBlockStorage_AddAndGetBlock(t *testing.T) {
 	if retrievedBlockByHash == nil {
 		t.Fatalf("Expected block, got nil")
 	}
-	if retrievedBlockByHash.Hash() != block.Hash() {
-		t.Fatalf("Expected block hash %s, got %s", block.Hash().Hex(), retrievedBlockByHash.Hash().Hex())
+	if retrievedBlockByHash.Block.Hash() != block.Hash() {
+		t.Fatalf("Expected block hash %s, got %s", block.Hash().Hex(), retrievedBlockByHash.Block.Hash().Hex())
 	}
 }
 
@@ -93,7 +95,9 @@ func TestBlockStorage_Exists(t *testing.T) {
 	block := NewBlock(prevHash, blockNumber, transactions, receipts)
 
 	// Add the block to storage
-	storage.AddBlock(block)
+	storage.AddBlock(&BlockState{
+		Block: block,
+	})
 
 	// Check if the block exists
 	if !storage.Exists(block.NumberU64()) {
@@ -120,7 +124,9 @@ func TestBlockStorage_AddBlock_Concurrency(t *testing.T) {
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func() {
-			storage.AddBlock(block)
+			storage.AddBlock(&BlockState{
+				Block: block,
+			})
 			done <- true
 		}()
 	}
