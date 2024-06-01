@@ -23,13 +23,12 @@ import (
 )
 
 func Run(ctx context.Context, rpcURL string, forkBlock uint64, chainID *big.Int) error {
-	var err error
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	logger, err := log.NewZapLogger(false)
 	if err != nil {
-		return fmt.Errorf("failed to create logger, %w", err)
+		return fmt.Errorf("failed to create logger: %w", err)
 	}
 
 	httpserver := server.New(":6969", logger)
@@ -41,7 +40,7 @@ func Run(ctx context.Context, rpcURL string, forkBlock uint64, chainID *big.Int)
 
 	stateReader, err := provider.NewJsonRPCProvider(rpcURL)
 	if err != nil {
-		return fmt.Errorf("state reader err %w", err)
+		return fmt.Errorf("state reader error: %w", err)
 	}
 
 	forkDB := fork.NewDB(stateReader, forkConfig, entity.NewAccountsStorage(), entity.NewAccountsState())
@@ -50,16 +49,19 @@ func Run(ctx context.Context, rpcURL string, forkBlock uint64, chainID *big.Int)
 
 	exec, err := executor.NewExecutor(ctx, cfg, forkDB, stateReader)
 	if err != nil {
-		return fmt.Errorf("new executor err %w", err)
+		return fmt.Errorf("new executor error: %w", err)
 	}
 
 	rpcService := services.NewRpcService(exec, forkDB, &forkConfig, stateReader)
 
-	rpcServer := jsonrpc.NewServer(jsonrpc.WithNamespaceSeparator("_"), jsonrpc.WithMethodTransformer(func(s string) string {
-		r := []rune(s)
-		r[0] = unicode.ToLower(r[0])
-		return string(r)
-	}))
+	rpcServer := jsonrpc.NewServer(
+		jsonrpc.WithNamespaceSeparator("_"),
+		jsonrpc.WithMethodTransformer(func(s string) string {
+			r := []rune(s)
+			r[0] = unicode.ToLower(r[0])
+			return string(r)
+		}),
+	)
 
 	rpcServer.Register("eth", rpcService)
 
@@ -67,24 +69,22 @@ func Run(ctx context.Context, rpcURL string, forkBlock uint64, chainID *big.Int)
 
 	httpserver.Start()
 
-	// Waiting signal
+	// Waiting for signal
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
 	select {
 	case <-ctx.Done():
-		logger.Info("M::context canceled")
+		logger.Info("context canceled")
 	case s := <-interrupt:
-		logger.Info("M::signal -> " + s.String())
+		logger.Info("signal -> " + s.String())
 	case err = <-httpserver.Notify():
-		return fmt.Errorf("M::notify ->, %w", err)
+		return fmt.Errorf("notify -> %w", err)
 	}
 
-	err = httpserver.Shutdown()
-	if err != nil {
-		logger.Error("APP::shutdown, %s", zap.Error(err))
+	if err := httpserver.Shutdown(); err != nil {
+		logger.Error("app::shutdown", zap.Error(err))
 	}
 
 	return nil
-
 }
