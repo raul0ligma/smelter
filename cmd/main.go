@@ -13,9 +13,11 @@ import (
 )
 
 func main() {
-	var rpcURL string
-	var forkBlock uint64
-	var chainID *big.Int
+	var (
+		rpcURL    string
+		forkBlock uint64
+		chainID   *big.Int
+	)
 
 	cli := &clitool.App{
 		Name:  "smelter",
@@ -40,21 +42,21 @@ func main() {
 				return errors.New("invalid rpc url")
 			}
 
-			if forkBlock == 0 {
-				client, err := ethclient.Dial(rpcURL)
-				if err != nil {
-					return err
-				}
+			client, err := ethclient.Dial(rpcURL)
+			if err != nil {
+				return err
+			}
 
+			if forkBlock == 0 {
 				forkBlock, err = client.BlockNumber(cCtx.Context)
 				if err != nil {
 					return err
 				}
+			}
 
-				chainID, err = client.ChainID(cCtx.Context)
-				if err != nil {
-					return err
-				}
+			chainID, err = client.ChainID(cCtx.Context)
+			if err != nil {
+				return err
 			}
 
 			utils.PrintSmelter()
