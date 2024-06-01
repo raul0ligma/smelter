@@ -15,5 +15,9 @@ type postExecutionStateFetcher interface {
 }
 
 type blockStorage interface {
-	AddBlock(block *types.Block)
+	AddBlock(block *entity.BlockState)
+}
+
+type forkDB interface {
+	Copy() (*entity.AccountsStorage, *entity.AccountsState)
 }
