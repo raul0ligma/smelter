@@ -46,12 +46,12 @@ func NewExecutor(
 
 	blockNum, err := provider.BlockNumber(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch latest block %w", err)
 	}
 
 	block, err := provider.BlockByNumber(ctx, new(big.Int).SetUint64(blockNum))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetch block err %w", err)
 	}
 
 	e.prevBlockNum = blockNum
@@ -123,6 +123,7 @@ func (e *SerialExecutor) roll(
 		new(big.Int).SetUint64(e.prevBlockNum),
 		e.prevBlockHash,
 		executionDB.Dirty(),
+		e.db,
 		e.txn, e.blocks)
 	if err != nil {
 		fmt.Println(err)
