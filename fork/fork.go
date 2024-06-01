@@ -140,3 +140,7 @@ func (db *DB) ApplyState(s *entity.AccountsState) {
 func (db *DB) ApplyStorage(s *entity.AccountsStorage) {
 	db.accountStorage.Apply(s)
 }
+
+func (db *DB) Copy() (*entity.AccountsStorage, *entity.AccountsState) {
+	return entity.NewAccountsStorageWitStorage(db.accountStorage.Clone()), entity.NewAccountsStateWithStorage(db.accountState.Clone())
+}
