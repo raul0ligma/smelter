@@ -55,8 +55,14 @@ func NewBlock(
 	return b
 }
 
+type BlockState struct {
+	Accounts *AccountsStorage
+	State    *AccountsState
+	Block    *types.Block
+}
+
 type BlockStorage struct {
-	storage  map[common.Hash]*types.Block
+	storage  map[common.Hash]*BlockState
 	num2Hash map[uint64]common.Hash
 	latest   uint64
 	mu       sync.Mutex
@@ -64,7 +70,7 @@ type BlockStorage struct {
 
 func NewBlockStorage() *BlockStorage {
 	return &BlockStorage{
-		storage:  make(map[common.Hash]*types.Block),
+		storage:  make(map[common.Hash]*BlockState),
 		num2Hash: make(map[uint64]common.Hash),
 		latest:   0,
 	}
@@ -77,7 +83,7 @@ func (b *BlockStorage) Exists(block uint64) bool {
 	return ok
 }
 
-func (b *BlockStorage) GetBlockByNumber(block uint64) *types.Block {
+func (b *BlockStorage) GetBlockByNumber(block uint64) *BlockState {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	num, ok := b.num2Hash[block]
@@ -88,26 +94,35 @@ func (b *BlockStorage) GetBlockByNumber(block uint64) *types.Block {
 	return b.storage[num]
 }
 
-func (b *BlockStorage) GetBlockByHash(hash common.Hash) *types.Block {
+func (b *BlockStorage) GetBlockByHash(hash common.Hash) *BlockState {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.storage[hash]
+	state, ok := b.storage[hash]
+	if !ok {
+		return nil
+	}
+
+	return state
 }
 
-func (b *BlockStorage) AddBlock(block *types.Block) {
+func (b *BlockStorage) AddBlock(state *BlockState) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	_, exists := b.num2Hash[block.NumberU64()]
+	_, exists := b.num2Hash[state.Block.NumberU64()]
 	if exists {
 		return
 	}
 
-	b.storage[block.Hash()] = block
-	b.num2Hash[block.NumberU64()] = block.Hash()
+	b.storage[state.Block.Hash()] = state
+	b.num2Hash[state.Block.NumberU64()] = state.Block.Hash()
 
-	if b.latest < block.NumberU64() {
-		b.latest = block.NumberU64()
+	if b.latest < state.Block.NumberU64() {
+		b.latest = state.Block.NumberU64()
 	}
+}
+
+func (b *BlockStorage) Latest() uint64 {
+	return b.latest
 }
 
 func (b *BlockStorage) Apply(s *BlockStorage) {
