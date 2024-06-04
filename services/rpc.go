@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -12,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/rahul0tripathi/smelter/pkg/server"
 	"github.com/rahul0tripathi/smelter/tracer"
-	types2 "github.com/rahul0tripathi/smelter/types"
 )
 
 type Rpc struct {
@@ -283,8 +284,12 @@ func (r *Rpc) SendRawTransaction(
 	if err = tx.DecodeRLP(rlp.NewStream(bytes.NewReader(decoded), uint64(len(decoded)))); err != nil {
 		return "0x", err
 	}
+	fmt.Println(ctx.Value(server.Caller{}))
+	from, ok := ctx.Value(server.Caller{}).(common.Address)
+	if !ok {
+		return "0x", errors.New("failed to parse caller")
+	}
 
-	from := types2.Address0x69
 	msg := ethereum.CallMsg{
 		From:     from,
 		To:       tx.To(),

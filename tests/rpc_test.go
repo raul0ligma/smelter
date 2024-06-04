@@ -11,10 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	types2 "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-errors/errors"
 	"github.com/rahul0tripathi/smelter/app"
 	"github.com/rahul0tripathi/smelter/types"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	_headerCaller = "X-Caller"
 )
 
 func logJSON(t *testing.T, val interface{}, params ...interface{}) {
@@ -41,7 +46,7 @@ func start(ctx context.Context, chainID *big.Int, block uint64) error {
 		return err
 	case <-started:
 		return nil
-	case <-time.After(time.Second * 5):
+	case <-time.After(time.Second * 10):
 		return errors.New("failed to start server, timed out")
 	}
 }
@@ -57,9 +62,9 @@ func Test_Rpc(t *testing.T) {
 	}
 
 	forkedRPC := "http://0.0.0.0:6969/v1/rpc"
-
-	client, err := ethclient.DialContext(ctx, forkedRPC)
+	r, err := rpc.DialContext(ctx, forkedRPC)
 	require.NoError(t, err, "failed to connect to forked rpc")
+	client := ethclient.NewClient(r)
 
 	wethAddr := common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
 	weth, err := NewErc20Binding(wethAddr, client)
@@ -73,6 +78,7 @@ func Test_Rpc(t *testing.T) {
 	require.NoError(t, err, "failed to call BalanceAt")
 	t.Log("before eth balance", ethBal.String())
 
+	r.SetHeader(_headerCaller, types.Address0x69.Hex())
 	depositCall, _ := hexutil.Decode("0xd0e30db0")
 	tx := types2.NewTx(&types2.LegacyTx{
 		Nonce: 1,
