@@ -16,7 +16,11 @@ func getBalanceFromForkDB(ctx context.Context, forkDB forkDB, account common.Add
 		return "0x", err
 	}
 
-	return bal.String(), nil
+	if bal.Uint64() == 0 {
+		return "0x0", nil
+	}
+
+	return hexutil.Encode(bal.Bytes()), nil
 }
 
 func parseBlockNumber(blockNumber string) (*big.Int, error) {
@@ -34,7 +38,11 @@ func getBalanceFromBlockStorage(executor executor, account common.Address, block
 	}
 
 	if balAt := b.State.GetBalance(account); balAt != nil {
-		return balAt.String(), nil
+		if balAt.Uint64() == 0 {
+			return "0x0", nil
+		}
+
+		return hexutil.Encode(balAt.Bytes()), nil
 	}
 
 	return "0x", nil
@@ -51,7 +59,11 @@ func getBalanceFromReader(
 		return "0x", err
 	}
 
-	return at.String(), nil
+	if at.Uint64() == 0 {
+		return "0x0", nil
+	}
+
+	return hexutil.Encode(at.Bytes()), nil
 }
 
 func getCodeFromBlockStorage(executor executor, account common.Address, blockNum uint64) (string, error) {
