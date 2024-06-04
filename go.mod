@@ -5,6 +5,7 @@ go 1.21.1
 require (
 	github.com/consensys/gnark-crypto v0.12.1
 	github.com/ethereum/go-ethereum v1.14.4-0.20240523122703-cc9e2bd9ddd5
+	github.com/go-errors/errors v1.4.2
 	github.com/go-resty/resty/v2 v2.13.1
 	github.com/holiman/uint256 v1.2.4
 	github.com/labstack/echo/v4 v4.12.0
