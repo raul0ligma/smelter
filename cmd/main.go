@@ -61,7 +61,7 @@ func main() {
 
 			utils.PrintSmelter()
 			utils.PrintConfig(rpcURL, chainID, forkBlock)
-			return app.Run(cCtx.Context, rpcURL, forkBlock, chainID)
+			return app.Run(cCtx.Context, rpcURL, forkBlock, chainID, nil)
 		},
 	}
 
