@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Run(ctx context.Context, rpcURL string, forkBlock uint64, chainID *big.Int) error {
+func Run(ctx context.Context, rpcURL string, forkBlock uint64, chainID *big.Int, startHook chan<- struct{}) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -68,6 +68,13 @@ func Run(ctx context.Context, rpcURL string, forkBlock uint64, chainID *big.Int)
 	controller.SetupRouter(httpserver.Router(), rpcServer, logger)
 
 	httpserver.Start()
+
+	if startHook != nil {
+		select {
+		case startHook <- struct{}{}:
+		default:
+		}
+	}
 
 	// Waiting for signal
 	interrupt := make(chan os.Signal, 1)
