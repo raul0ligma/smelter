@@ -2,13 +2,49 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rahul0tripathi/smelter/entity"
 )
+
+const (
+	hexPrefix   = "0x"
+	latestBlock = "latest"
+)
+
+func parseAndValidateBlockNumber(blockNumber string, latest uint64) (*big.Int, error) {
+	if blockNumber == "" || blockNumber == latestBlock {
+		return new(big.Int).SetUint64(latest), nil
+	}
+
+	if len(blockNumber) > 2 && blockNumber[:2] == hexPrefix {
+		block, err := parseBlockNumber(blockNumber)
+		if err != nil {
+			return nil, err
+		}
+
+		if block.Uint64() > latest {
+			return nil, fmt.Errorf("invalid block height, received %d, current %d", block.Uint64(), latest)
+		}
+		return block, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse block number %s", blockNumber)
+}
+
+func getBlockFromStorageOrReader(exec executor, reader entity.ChainStateReader, number uint64) (*types.Block, error) {
+	storage := exec.BlockStorage().GetBlockByNumber(number)
+	if storage != nil {
+		return storage.Block, nil
+	}
+	return reader.BlockByNumber(context.Background(), new(big.Int).SetUint64(number))
+}
 
 func getBalanceFromForkDB(ctx context.Context, forkDB forkDB, account common.Address) (string, error) {
 	bal, err := forkDB.GetBalance(ctx, account)
@@ -107,4 +143,80 @@ func getStateFromReader(
 	}
 
 	return hexutil.Encode(at), nil
+}
+
+type jsonCallMsg struct {
+	From      common.Address
+	To        common.Address
+	Gas       uint64
+	GasPrice  string
+	GasFeeCap string
+	GasTipCap string
+	Value     string
+	Input     string
+}
+
+func (msg *jsonCallMsg) ToEthCallMsg() (call ethereum.CallMsg, err error) {
+	call.Value = new(big.Int).SetUint64(0)
+	if msg.Value != "" {
+		var set bool
+		call.Value, set = new(big.Int).SetString(msg.Value, 10)
+		if !set {
+			return call, errors.New("invalid value")
+		}
+
+	}
+
+	call.Gas = 30e6
+	call.From = msg.From
+	call.To = &msg.To
+	callData, err := hexutil.Decode(msg.Input)
+	if err != nil {
+		return call, err
+	}
+
+	call.Data = callData
+	return
+}
+
+func getCodeFromReader(
+	ctx context.Context,
+	reader entity.ChainStateReader,
+	account common.Address,
+	block *big.Int,
+) (string, error) {
+	code, err := reader.CodeAt(ctx, account, block)
+	if err != nil {
+		return "0x", err
+	}
+	return hexutil.Encode(code), nil
+}
+
+func decodeHexString(encoded string) ([]byte, error) {
+	return hexutil.Decode(encoded)
+}
+
+func createEthCallMsg(msg jsonCallMsg) (ethereum.CallMsg, error) {
+	call := ethereum.CallMsg{
+		From:  msg.From,
+		To:    &msg.To,
+		Gas:   30e6,
+		Value: new(big.Int).SetInt64(0),
+	}
+
+	if msg.Value != "" {
+		var set bool
+		call.Value, set = new(big.Int).SetString(msg.Value, 10)
+		if !set {
+			return call, errors.New("invalid value")
+		}
+	}
+
+	callData, err := decodeHexString(msg.Input)
+	if err != nil {
+		return call, err
+	}
+
+	call.Data = callData
+	return call, nil
 }

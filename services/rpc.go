@@ -52,59 +52,10 @@ func (r *Rpc) BlockNumber(_ context.Context) (string, error) {
 	return hexutil.Encode(new(big.Int).SetUint64(blockNum).Bytes()), nil
 }
 
-func (r *Rpc) GetBalance(ctx context.Context, account common.Address, blockNumber string) (string, error) {
-	switch {
-	case blockNumber == "", blockNumber == "latest":
-		return getBalanceFromForkDB(ctx, r.forkDB, account)
-
-	case len(blockNumber) > 2 && blockNumber[:2] == "0x":
-		block, err := parseBlockNumber(blockNumber)
-		if err != nil {
-			return "0x", err
-		}
-
-		_, latest := r.executor.Latest()
-		switch {
-		case block.Uint64() > latest:
-			return "0x", fmt.Errorf("invalid block height, received %d, current %d", block.Uint64(), latest)
-
-		case block.Uint64() == latest:
-			return getBalanceFromForkDB(ctx, r.forkDB, account)
-
-		case block.Uint64() >= r.cfg.ForkBlock.Uint64():
-			bal, err := getBalanceFromBlockStorage(r.executor, account, block.Uint64())
-			switch {
-			case err != nil:
-				return "0x", err
-			case bal == "0x":
-				return getBalanceFromReader(ctx, r.reader, account, block)
-			default:
-				return bal, nil
-			}
-
-		default:
-			return getBalanceFromReader(ctx, r.reader, account, block)
-		}
-
-	default:
-		return "0x", fmt.Errorf("failed to parse block number %s", blockNumber)
-	}
-}
-
 func (r *Rpc) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	storage := r.executor.BlockStorage().GetBlockByHash(hash)
 	if storage == nil {
 		return r.reader.BlockByHash(ctx, hash)
-	}
-
-	return storage.Block, nil
-}
-
-func (r *Rpc) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block, error) {
-
-	storage := r.executor.BlockStorage().GetBlockByNumber(number)
-	if storage == nil {
-		return r.reader.BlockByNumber(ctx, new(big.Int).SetUint64(number))
 	}
 
 	return storage.Block, nil
@@ -116,100 +67,32 @@ func (r *Rpc) GetStorageAt(
 	slot common.Hash,
 	blockNumber string,
 ) (string, error) {
-	switch {
-	case blockNumber == "", blockNumber == "latest":
+	_, latest := r.executor.Latest()
+	block, err := parseAndValidateBlockNumber(blockNumber, latest)
+	if err != nil {
+		return "0x", err
+	}
+
+	if block.Uint64() == latest {
 		hash, err := r.forkDB.GetState(ctx, account, slot)
 		if err != nil {
 			return "0x", err
 		}
-
 		return hash.Hex(), nil
+	}
 
-	case len(blockNumber) > 2 && blockNumber[:2] == "0x":
-		block, err := parseBlockNumber(blockNumber)
+	if block.Uint64() >= r.cfg.ForkBlock.Uint64() {
+		state, err := getStateFromBlockStorage(r.executor, account, slot, block.Uint64())
 		if err != nil {
 			return "0x", err
 		}
-
-		_, latest := r.executor.Latest()
-		switch {
-		case block.Uint64() > latest:
-			return "0x", fmt.Errorf("invalid block height, received %d, current %d", block.Uint64(), latest)
-
-		case block.Uint64() == latest:
-			hash, err := r.forkDB.GetState(ctx, account, slot)
-			if err != nil {
-				return "0x", err
-			}
-
-			return hash.Hex(), nil
-
-		case block.Uint64() >= r.cfg.ForkBlock.Uint64():
-			state, err := getStateFromBlockStorage(r.executor, account, slot, block.Uint64())
-			if err != nil {
-				return "0x", err
-			}
-
-			if state == common.HexToHash("") {
-				return getStateFromReader(ctx, r.reader, account, slot, block)
-			}
-
-			return state.Hex(), nil
-
-		default:
+		if state == common.HexToHash("") {
 			return getStateFromReader(ctx, r.reader, account, slot, block)
 		}
-
-	default:
-		return "0x", fmt.Errorf("failed to parse block number %s", blockNumber)
+		return state.Hex(), nil
 	}
 
-}
-
-func (r *Rpc) GetCode(ctx context.Context, account common.Address, blockNumber string) (string, error) {
-	switch {
-	case blockNumber == "", blockNumber == "latest":
-		code, err := r.forkDB.GetCode(ctx, account)
-		if err != nil {
-			return "0x", err
-		}
-
-		return hexutil.Encode(code), nil
-
-	case len(blockNumber) > 2 && blockNumber[:2] == "0x":
-		block, err := parseBlockNumber(blockNumber)
-		if err != nil {
-			return "0x", err
-		}
-
-		_, latest := r.executor.Latest()
-		switch {
-		case block.Uint64() > latest:
-			return "0x", fmt.Errorf("invalid block height, received %d, current %d", block.Uint64(), latest)
-
-		case block.Uint64() == latest:
-			code, err := r.forkDB.GetCode(ctx, account)
-			if err != nil {
-				return "0x", err
-			}
-
-			return hexutil.Encode(code), nil
-
-		case block.Uint64() >= r.cfg.ForkBlock.Uint64():
-			return getCodeFromBlockStorage(r.executor, account, block.Uint64())
-
-		default:
-			code, err := r.reader.CodeAt(ctx, account, block)
-			if err != nil {
-				return "0x", err
-			}
-
-			return hexutil.Encode(code), nil
-		}
-
-	default:
-		return "0x", fmt.Errorf("failed to parse block number %s", blockNumber)
-	}
+	return getStateFromReader(ctx, r.reader, account, slot, block)
 }
 
 func (r *Rpc) GetHeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
@@ -230,37 +113,18 @@ func (r *Rpc) GetHeaderByNumber(ctx context.Context, number uint64) (*types.Head
 	return block.Header(), nil
 }
 
-type jsonCallMsg struct {
-	From      common.Address // the sender of the 'transaction'
-	To        common.Address // the destination contract (nil for contract creation)
-	Gas       uint64         // if 0, the call executes with near-infinite gas
-	GasPrice  string         // wei <-> gas exchange ratio
-	GasFeeCap string         // EIP-1559 fee cap per gas.
-	GasTipCap string         // EIP-1559 tip per gas.
-	Value     string         // amount of wei sent along with the call
-	Input     string         // input data, usually an ABI-encoded contract method invocation
-}
-
 func (r *Rpc) Call(
 	ctx context.Context,
-	msg *jsonCallMsg,
-	// TODO: add block number handling with state
+	msg jsonCallMsg,
 	blockNumber string,
 ) (string, error) {
 	t := tracer.NewTracer(false)
-	call := ethereum.CallMsg{}
-	call.Value = new(big.Int).SetUint64(0)
-	if msg.Value != "" {
-		call.Value, _ = new(big.Int).SetString(msg.Value, 10)
+	call, err := createEthCallMsg(msg)
+	if err != nil {
+		return "0x", err
 	}
 
-	call.Gas = 30e6
-	call.From = msg.From
-	call.To = &msg.To
-	callData, _ := hexutil.Decode(msg.Input)
-
-	call.Data = callData
-
+	// TODO: handle blockNumber
 	ret, _, err := r.executor.Call(ctx, call, t.Hooks(), entity.StateOverrides{})
 	if err != nil {
 		return "0x", err
@@ -271,11 +135,10 @@ func (r *Rpc) Call(
 
 func (r *Rpc) SendRawTransaction(
 	ctx context.Context,
-	// RLP encoded transaction
 	encoded string,
 ) (string, error) {
 	t := tracer.NewTracer(false)
-	decoded, err := hexutil.Decode(encoded)
+	decoded, err := decodeHexString(encoded)
 	if err != nil {
 		return "0x", err
 	}
@@ -284,7 +147,7 @@ func (r *Rpc) SendRawTransaction(
 	if err = tx.DecodeRLP(rlp.NewStream(bytes.NewReader(decoded), uint64(len(decoded)))); err != nil {
 		return "0x", err
 	}
-	fmt.Println(ctx.Value(server.Caller{}))
+
 	from, ok := ctx.Value(server.Caller{}).(common.Address)
 	if !ok {
 		return "0x", errors.New("failed to parse caller")
@@ -335,4 +198,48 @@ func (r *Rpc) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, er
 
 func (r *Rpc) GasPrice(ctx context.Context) (string, error) {
 	return new(big.Int).SetInt64(0).String(), nil
+}
+
+func (r *Rpc) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block, error) {
+	return getBlockFromStorageOrReader(r.executor, r.reader, number)
+}
+
+func (r *Rpc) GetBalance(ctx context.Context, account common.Address, blockNumber string) (string, error) {
+	_, latest := r.executor.Latest()
+	block, err := parseAndValidateBlockNumber(blockNumber, latest)
+	if err != nil {
+		return hexPrefix, err
+	}
+
+	if block.Uint64() == r.cfg.ForkBlock.Uint64() {
+		return getBalanceFromForkDB(ctx, r.forkDB, account)
+	}
+
+	bal, err := getBalanceFromBlockStorage(r.executor, account, block.Uint64())
+	if err != nil || bal == hexPrefix {
+		return getBalanceFromReader(ctx, r.reader, account, block)
+	}
+	return bal, nil
+}
+
+func (r *Rpc) GetCode(ctx context.Context, account common.Address, blockNumber string) (string, error) {
+	_, latest := r.executor.Latest()
+	block, err := parseAndValidateBlockNumber(blockNumber, latest)
+	if err != nil {
+		return "0x", err
+	}
+
+	if block.Uint64() == latest {
+		code, err := r.forkDB.GetCode(ctx, account)
+		if err != nil {
+			return "0x", err
+		}
+		return hexutil.Encode(code), nil
+	}
+
+	if block.Uint64() >= r.cfg.ForkBlock.Uint64() {
+		return getCodeFromBlockStorage(r.executor, account, block.Uint64())
+	}
+
+	return getCodeFromReader(ctx, r.reader, account, block)
 }
