@@ -44,17 +44,12 @@ func NewExecutor(
 		blocks:   entity.NewBlockStorage(),
 	}
 
-	blockNum, err := provider.BlockNumber(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("fetch latest block %w", err)
-	}
-
-	block, err := provider.BlockByNumber(ctx, new(big.Int).SetUint64(blockNum))
+	block, err := provider.BlockByNumber(ctx, cfg.ForkConfig.ForkBlock)
 	if err != nil {
 		return nil, fmt.Errorf("fetch block err %w", err)
 	}
 
-	e.prevBlockNum = blockNum
+	e.prevBlockNum = cfg.ForkConfig.ForkBlock.Uint64()
 	e.prevBlockHash = block.Hash()
 	return e, nil
 }
@@ -117,7 +112,7 @@ func (e *SerialExecutor) roll(
 
 	tx := producer.NewTransactionContext(nonce+1, msg)
 
-	hash, block, err := producer.MineBlockWithSignleTransaction(
+	hash, block, err := producer.MineBlockWithSingleTransaction(
 		tx,
 		left,
 		new(big.Int).SetUint64(e.prevBlockNum),
@@ -147,6 +142,41 @@ func (e *SerialExecutor) Call(
 	defer e.mu.Unlock()
 
 	executionDB := statedb.NewDB(ctx, e.db)
+	if err = executionDB.ApplyOverrides(overrides); err != nil {
+		return nil, 0, err
+	}
+
+	chainCfg, evmCfg := e.cfg.ExecutionConfig(hooks)
+	env := vm.NewEVM(e.cfg.BlockContext(new(big.Int).Add(e.cfg.ForkConfig.ForkBlock, new(big.Int).SetUint64(1)),
+		new(big.Int),
+		uint64(time.Now().Unix())),
+		e.cfg.TxCtx(tx.From),
+		executionDB,
+		chainCfg,
+		evmCfg)
+	value, _ := uint256.FromBig(tx.Value)
+	ret, leftOverGas, err = env.Call(
+		vm.AccountRef(tx.From),
+		*tx.To,
+		tx.Data,
+		tx.Gas,
+		value,
+	)
+
+	return
+}
+
+func (e *SerialExecutor) CallWithDB(
+	ctx context.Context,
+	tx ethereum.CallMsg,
+	hooks *tracing.Hooks,
+	db *fork.DB,
+	overrides entity.StateOverrides,
+) (ret []byte, leftOverGas uint64, err error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	executionDB := statedb.NewDB(ctx, db)
 	if err = executionDB.ApplyOverrides(overrides); err != nil {
 		return nil, 0, err
 	}
