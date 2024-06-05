@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/rahul0tripathi/smelter/fork"
 )
 
 const (
@@ -24,7 +25,7 @@ func parseAndValidateBlockNumber(blockNumber string, latest uint64) (*big.Int, e
 	}
 
 	if len(blockNumber) > 2 && blockNumber[:2] == hexPrefix {
-		block, err := parseBlockNumber(blockNumber)
+		block, err := parseBigInt(blockNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -59,7 +60,11 @@ func getBalanceFromForkDB(ctx context.Context, forkDB forkDB, account common.Add
 	return hexutil.Encode(bal.Bytes()), nil
 }
 
-func parseBlockNumber(blockNumber string) (*big.Int, error) {
+func parseBigInt(blockNumber string) (*big.Int, error) {
+	if len(blockNumber)%2 != 0 {
+		blockNumber = blockNumber[:2] + "0" + blockNumber[2:]
+	}
+
 	numBytes, err := hexutil.Decode(blockNumber)
 	if err != nil {
 		return nil, err
@@ -67,21 +72,30 @@ func parseBlockNumber(blockNumber string) (*big.Int, error) {
 	return new(big.Int).SetBytes(numBytes), nil
 }
 
-func getBalanceFromBlockStorage(executor executor, account common.Address, blockNum uint64) (string, error) {
+func getBalanceFromBlockStorage(
+	ctx context.Context,
+	executor executor,
+	chainID uint64,
+	reader readerAndCaller,
+	account common.Address,
+	blockNum uint64,
+) (string, error) {
 	b := executor.BlockStorage().GetBlockByNumber(blockNum)
 	if b == nil {
 		return "0x", fmt.Errorf("block %d not found in block storage", blockNum)
 	}
 
-	if balAt := b.State.GetBalance(account); balAt != nil {
-		if balAt.Uint64() == 0 {
-			return "0x0", nil
-		}
+	db := fork.NewDB(reader, entity.ForkConfig{
+		ChainID:   chainID,
+		ForkBlock: new(big.Int).SetUint64(blockNum),
+	}, b.Accounts, b.State)
 
-		return hexutil.Encode(balAt.Bytes()), nil
+	balAt, err := db.GetBalance(ctx, account)
+	if err != nil {
+		return "0x0", err
 	}
 
-	return "0x", nil
+	return hexutil.Encode(balAt.Bytes()), nil
 }
 
 func getBalanceFromReader(
@@ -116,7 +130,10 @@ func getCodeFromBlockStorage(executor executor, account common.Address, blockNum
 }
 
 func getStateFromBlockStorage(
+	ctx context.Context,
 	executor executor,
+	chainID uint64,
+	reader readerAndCaller,
 	account common.Address,
 	slot common.Hash,
 	blockNum uint64,
@@ -125,7 +142,16 @@ func getStateFromBlockStorage(
 	if b == nil {
 		return common.Hash{}, fmt.Errorf("block %d not found in block storage", blockNum)
 	}
-	storage := b.Accounts.ReadStorage(account, slot)
+
+	db := fork.NewDB(reader, entity.ForkConfig{
+		ChainID:   chainID,
+		ForkBlock: new(big.Int).SetUint64(blockNum),
+	}, b.Accounts, b.State)
+
+	storage, err := db.GetState(ctx, account, slot)
+	if err != nil {
+		return [32]byte{}, err
+	}
 
 	return storage, nil
 }
@@ -219,4 +245,31 @@ func createEthCallMsg(msg jsonCallMsg) (ethereum.CallMsg, error) {
 
 	call.Data = callData
 	return call, nil
+}
+
+func getBlockStorage(
+	executor executor,
+	blockNum uint64,
+) (*entity.BlockState, error) {
+	b := executor.BlockStorage().GetBlockByNumber(blockNum)
+	if b == nil {
+		return nil, fmt.Errorf("block %d not found in block storage", blockNum)
+	}
+
+	return b, nil
+}
+
+func callOnReader(
+	ctx context.Context,
+	caller ethereum.ContractCaller,
+	msg ethereum.CallMsg,
+	block *big.Int,
+) (string, error) {
+	msg.Gas = 5e6
+	ret, err := caller.CallContract(ctx, msg, block)
+	if err != nil {
+		return "0x", err
+	}
+
+	return hexutil.Encode(ret), nil
 }
