@@ -53,6 +53,8 @@ func GetRPClient(ctx context.Context, chainID uint64) (string, error) {
 		return "", err
 	}
 
+	fmt.Println(resp)
+
 	for _, rpc := range resp.PageProps.Chain.Rpc {
 		_, err := ethclient.DialContext(ctx, rpc.Url)
 		if err != nil {
