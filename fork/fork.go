@@ -72,6 +72,15 @@ func (db *DB) GetBalance(ctx context.Context, addr common.Address) (*big.Int, er
 	return db.accountState.GetBalance(addr), nil
 }
 
+func (db *DB) SetBalance(ctx context.Context, addr common.Address, amount *big.Int) error {
+	if err := db.CreateState(ctx, addr); err != nil {
+		return err
+	}
+
+	db.accountState.SetBalance(addr, amount)
+	return nil
+}
+
 func (db *DB) GetNonce(ctx context.Context, addr common.Address) (uint64, error) {
 	if err := db.CreateState(ctx, addr); err != nil {
 		return 0, err
