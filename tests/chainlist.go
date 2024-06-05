@@ -53,8 +53,6 @@ func GetRPClient(ctx context.Context, chainID uint64) (string, error) {
 		return "", err
 	}
 
-	fmt.Println(resp)
-
 	for _, rpc := range resp.PageProps.Chain.Rpc {
 		_, err := ethclient.DialContext(ctx, rpc.Url)
 		if err != nil {
@@ -62,6 +60,10 @@ func GetRPClient(ctx context.Context, chainID uint64) (string, error) {
 		}
 
 		return rpc.Url, nil
+	}
+
+	if chainID == 1 {
+		return "https://eth.llamarpc.com", nil
 	}
 
 	return "", errors.New("no provider found")
