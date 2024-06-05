@@ -20,7 +20,7 @@ func NewTransactionContext(nonce uint64, msg ethereum.CallMsg) *types.Transactio
 	})
 }
 
-func MineBlockWithSignleTransaction(
+func MineBlockWithSingleTransaction(
 	tx *types.Transaction,
 	left uint64,
 	prevBlockNumber *big.Int,

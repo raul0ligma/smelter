@@ -29,6 +29,7 @@ type snapshot struct {
 	storage entity.AccountsStorageCache
 	state   entity.AccountStateStorage
 }
+
 type StateDB struct {
 	ctx        context.Context
 	db         forkDB

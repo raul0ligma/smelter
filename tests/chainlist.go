@@ -62,5 +62,9 @@ func GetRPClient(ctx context.Context, chainID uint64) (string, error) {
 		return rpc.Url, nil
 	}
 
+	if chainID == 1 {
+		return "https://eth.llamarpc.com", nil
+	}
+
 	return "", errors.New("no provider found")
 }
