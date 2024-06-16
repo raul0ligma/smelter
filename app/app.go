@@ -7,14 +7,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 	"unicode"
 
 	"github.com/rahul0tripathi/go-jsonrpc"
-	"github.com/rahul0tripathi/smelter/config"
 	"github.com/rahul0tripathi/smelter/controller"
 	"github.com/rahul0tripathi/smelter/entity"
-	"github.com/rahul0tripathi/smelter/executor"
-	"github.com/rahul0tripathi/smelter/fork"
 	"github.com/rahul0tripathi/smelter/pkg/log"
 	"github.com/rahul0tripathi/smelter/pkg/server"
 	"github.com/rahul0tripathi/smelter/provider"
@@ -22,7 +20,15 @@ import (
 	"go.uber.org/zap"
 )
 
-func Run(ctx context.Context, rpcURL string, forkBlock uint64, chainID *big.Int, startHook chan<- struct{}) error {
+func Run(
+	ctx context.Context,
+	rpcURL string,
+	forkBlock uint64,
+	chainID *big.Int,
+	stateTTL time.Duration,
+	cleanupInterval time.Duration,
+	startHook chan<- struct{},
+) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -43,16 +49,9 @@ func Run(ctx context.Context, rpcURL string, forkBlock uint64, chainID *big.Int,
 		return fmt.Errorf("state reader error: %w", err)
 	}
 
-	forkDB := fork.NewDB(stateReader, forkConfig, entity.NewAccountsStorage(), entity.NewAccountsState())
-	cfg := config.NewConfigWithDefaults()
-	cfg.ForkConfig = &forkConfig
-
-	exec, err := executor.NewExecutor(ctx, cfg, forkDB, stateReader)
-	if err != nil {
-		return fmt.Errorf("new executor error: %w", err)
-	}
-
-	rpcService := services.NewRpcService(exec, forkDB, &forkConfig, stateReader)
+	storage := services.NewExecutionStorage(forkConfig, stateReader, stateTTL)
+	go storage.Watcher(ctx, cleanupInterval)
+	rpcService := services.NewRpcService(storage, forkConfig, stateReader)
 
 	rpcServer := jsonrpc.NewServer(
 		jsonrpc.WithNamespaceSeparator("_"),
