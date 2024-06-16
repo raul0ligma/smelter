@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rahul0tripathi/smelter/app"
@@ -14,9 +15,11 @@ import (
 
 func main() {
 	var (
-		rpcURL    string
-		forkBlock uint64
-		chainID   *big.Int
+		rpcURL          string
+		forkBlock       uint64
+		stateTTL        time.Duration
+		cleanupInterval time.Duration
+		chainID         *big.Int
 	)
 
 	cli := &clitool.App{
@@ -35,6 +38,18 @@ func main() {
 				Value:       0,
 				Usage:       "block number of the chain to create a fork from",
 				Destination: &forkBlock,
+			},
+			&clitool.DurationFlag{
+				Name:        "stateTTL",
+				Value:       time.Minute * 5,
+				Usage:       "TTL for a fork state before it's cleaned",
+				Destination: &stateTTL,
+			},
+			&clitool.DurationFlag{
+				Name:        "cleanupInterval",
+				Value:       time.Minute * 10,
+				Usage:       "periodic interval to check and clean unused fork states",
+				Destination: &cleanupInterval,
 			},
 		},
 		Action: func(cCtx *clitool.Context) error {
@@ -61,7 +76,7 @@ func main() {
 
 			utils.PrintSmelter()
 			utils.PrintConfig(rpcURL, chainID, forkBlock)
-			return app.Run(cCtx.Context, rpcURL, forkBlock, chainID, nil)
+			return app.Run(cCtx.Context, rpcURL, forkBlock, chainID, stateTTL, cleanupInterval, nil)
 		},
 	}
 

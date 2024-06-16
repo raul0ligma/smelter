@@ -44,7 +44,7 @@ func start(ctx context.Context, chainID *big.Int, block uint64) error {
 	started := make(chan struct{}, 1)
 	errChan := make(chan error, 1)
 	go func(startChan chan<- struct{}, errChan chan<- error) {
-		if err = app.Run(ctx, rpcURL, block, chainID, started); err != nil {
+		if err = app.Run(ctx, rpcURL, block, chainID, time.Minute*5, time.Minute*10, started); err != nil {
 			errChan <- err
 			return
 		}
@@ -70,7 +70,7 @@ func Test_Rpc(t *testing.T) {
 		return
 	}
 
-	forkedRPC := "http://0.0.0.0:6969/v1/rpc"
+	forkedRPC := "http://0.0.0.0:6969/v1/rpc/something"
 	r, err := rpc.DialContext(ctx, forkedRPC)
 	require.NoError(t, err, "failed to connect to forked rpc")
 	client := ethclient.NewClient(r)
@@ -128,7 +128,7 @@ func Test_ReadPrevBlock(t *testing.T) {
 		return
 	}
 
-	forkedRPC := "http://0.0.0.0:6969/v1/rpc"
+	forkedRPC := "http://0.0.0.0:6969/v1/rpc/something"
 	r, err := rpc.DialContext(ctx, forkedRPC)
 	require.NoError(t, err, "failed to connect to forked rpc")
 	client := ethclient.NewClient(r)
