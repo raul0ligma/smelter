@@ -50,3 +50,7 @@ type forkDB interface {
 	ApplyState(s *entity.AccountsState)
 	ApplyStorage(s *entity.AccountsStorage)
 }
+
+type executionCtx interface {
+	GetOrCreate(ctx context.Context) (*ExecutionCtx, error)
+}
