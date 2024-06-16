@@ -60,6 +60,7 @@ func (e *ExecutionCtxStorage) Watcher(ctx context.Context, interval time.Duratio
 			e.cleanup()
 		case <-ctx.Done():
 			fmt.Println("killing state watcher")
+			return
 		}
 	}
 }
