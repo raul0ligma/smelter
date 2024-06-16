@@ -24,22 +24,18 @@ type readerAndCaller interface {
 }
 
 type Rpc struct {
-	executor executor
-	forkDB   forkDB
-
+	execStorage     executionCtx
 	readerAndCaller readerAndCaller
-	cfg             *entity.ForkConfig
+	cfg             entity.ForkConfig
 }
 
 func NewRpcService(
-	executor executor,
-	forkDB forkDB,
-	cfg *entity.ForkConfig,
+	storage executionCtx,
+	cfg entity.ForkConfig,
 	readerAndCaller readerAndCaller,
 ) *Rpc {
 	return &Rpc{
-		executor:        executor,
-		forkDB:          forkDB,
+		execStorage:     storage,
 		cfg:             cfg,
 		readerAndCaller: readerAndCaller,
 	}
@@ -49,8 +45,13 @@ func (r *Rpc) ChainId(_ context.Context) string {
 	return hexutil.Encode(new(big.Int).SetUint64(r.cfg.ChainID).Bytes())
 }
 
-func (r *Rpc) BlockNumber(_ context.Context) (string, error) {
-	_, blockNum := r.executor.Latest()
+func (r *Rpc) BlockNumber(ctx context.Context) (string, error) {
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	_, blockNum := execCtx.Executor.Latest()
 	if blockNum == 0 {
 		return hexutil.Encode(r.cfg.ForkBlock.Bytes()), nil
 	}
@@ -59,7 +60,12 @@ func (r *Rpc) BlockNumber(_ context.Context) (string, error) {
 }
 
 func (r *Rpc) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	storage := r.executor.BlockStorage().GetBlockByHash(hash)
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	storage := execCtx.Executor.BlockStorage().GetBlockByHash(hash)
 	if storage == nil {
 		return r.readerAndCaller.BlockByHash(ctx, hash)
 	}
@@ -73,14 +79,19 @@ func (r *Rpc) GetStorageAt(
 	slot common.Hash,
 	blockNumber string,
 ) (string, error) {
-	_, latest := r.executor.Latest()
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	_, latest := execCtx.Executor.Latest()
 	block, err := parseAndValidateBlockNumber(blockNumber, latest)
 	if err != nil {
 		return "0x", err
 	}
 
 	if block.Uint64() == latest {
-		hash, err := r.forkDB.GetState(ctx, account, slot)
+		hash, err := execCtx.Db.GetState(ctx, account, slot)
 		if err != nil {
 			return "0x", err
 		}
@@ -88,7 +99,7 @@ func (r *Rpc) GetStorageAt(
 	}
 
 	if block.Uint64() > r.cfg.ForkBlock.Uint64() {
-		state, err := getStateFromBlockStorage(ctx, r.executor, r.cfg.ChainID, r.readerAndCaller, account, slot, block.Uint64())
+		state, err := getStateFromBlockStorage(ctx, execCtx.Executor, r.cfg.ChainID, r.readerAndCaller, account, slot, block.Uint64())
 		if err != nil {
 			return "0x", err
 		}
@@ -124,7 +135,12 @@ func (r *Rpc) Call(
 	msg jsonCallMsg,
 	blockNumber string,
 ) (string, error) {
-	_, latest := r.executor.Latest()
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	_, latest := execCtx.Executor.Latest()
 	block, err := parseAndValidateBlockNumber(blockNumber, latest)
 	if err != nil {
 		return "0x", err
@@ -133,7 +149,7 @@ func (r *Rpc) Call(
 	call, err := createEthCallMsg(msg)
 	t := tracer.NewTracer(false)
 	if block.Uint64() == latest {
-		ret, _, err := r.executor.Call(ctx, call, t.Hooks(), entity.StateOverrides{})
+		ret, _, err := execCtx.Executor.Call(ctx, call, t.Hooks(), entity.StateOverrides{})
 		if err != nil {
 			return "0x", err
 		}
@@ -142,13 +158,13 @@ func (r *Rpc) Call(
 	}
 
 	if block.Uint64() > r.cfg.ForkBlock.Uint64() {
-		storage, err := getBlockStorage(r.executor, block.Uint64())
+		storage, err := getBlockStorage(execCtx.Executor, block.Uint64())
 		if err != nil {
 			return "0x", err
 		}
 
-		db := fork.NewDB(r.readerAndCaller, *r.cfg, storage.Accounts, storage.State)
-		ret, _, err := r.executor.CallWithDB(ctx, call, t.Hooks(), db, entity.StateOverrides{})
+		db := fork.NewDB(r.readerAndCaller, r.cfg, storage.Accounts, storage.State)
+		ret, _, err := execCtx.Executor.CallWithDB(ctx, call, t.Hooks(), db, entity.StateOverrides{})
 		if err != nil {
 			return "0x", err
 		}
@@ -163,6 +179,11 @@ func (r *Rpc) SendRawTransaction(
 	ctx context.Context,
 	encoded string,
 ) (string, error) {
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	t := tracer.NewTracer(false)
 	decoded, err := decodeHexString(encoded)
 	if err != nil {
@@ -188,7 +209,7 @@ func (r *Rpc) SendRawTransaction(
 		Data:     tx.Data(),
 	}
 
-	txHash, _, _, err := r.executor.CallAndPersist(ctx, msg, t.Hooks(), entity.StateOverrides{})
+	txHash, _, _, err := execCtx.Executor.CallAndPersist(ctx, msg, t.Hooks(), entity.StateOverrides{})
 	if err != nil {
 		return "0x", err
 	}
@@ -199,7 +220,12 @@ func (r *Rpc) SendRawTransaction(
 }
 
 func (r *Rpc) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	receipt := r.executor.TxnStorage().GetReceipt(txHash)
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	receipt := execCtx.Executor.TxnStorage().GetReceipt(txHash)
 	if receipt == nil {
 		return r.readerAndCaller.TransactionReceipt(ctx, txHash)
 	}
@@ -208,8 +234,12 @@ func (r *Rpc) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*t
 }
 
 func (r *Rpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
-	var err error
-	txn := r.executor.TxnStorage().GetTransaction(txHash)
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	txn := execCtx.Executor.TxnStorage().GetTransaction(txHash)
 	if txn == nil {
 		txn, _, err = r.readerAndCaller.TransactionByHash(ctx, txHash)
 		return txn, err
@@ -227,36 +257,51 @@ func (r *Rpc) GasPrice(ctx context.Context) (string, error) {
 }
 
 func (r *Rpc) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block, error) {
-	return getBlockFromStorageOrReader(r.executor, r.readerAndCaller, number)
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return getBlockFromStorageOrReader(execCtx.Executor, r.readerAndCaller, number)
 }
 
 func (r *Rpc) GetBalance(ctx context.Context, account common.Address, blockNumber string) (string, error) {
-	_, latest := r.executor.Latest()
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	_, latest := execCtx.Executor.Latest()
 	block, err := parseAndValidateBlockNumber(blockNumber, latest)
 	if err != nil {
 		return hexPrefix, err
 	}
 
 	if block.Uint64() == latest {
-		return getBalanceFromForkDB(ctx, r.forkDB, account)
+		return getBalanceFromForkDB(ctx, execCtx.Db, account)
 	}
 
 	if block.Uint64() > r.cfg.ForkBlock.Uint64() {
-		return getBalanceFromBlockStorage(ctx, r.executor, r.cfg.ChainID, r.readerAndCaller, account, block.Uint64())
+		return getBalanceFromBlockStorage(ctx, execCtx.Executor, r.cfg.ChainID, r.readerAndCaller, account, block.Uint64())
 	}
 
 	return getBalanceFromReader(ctx, r.readerAndCaller, account, block)
 }
 
 func (r *Rpc) GetCode(ctx context.Context, account common.Address, blockNumber string) (string, error) {
-	_, latest := r.executor.Latest()
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	_, latest := execCtx.Executor.Latest()
 	block, err := parseAndValidateBlockNumber(blockNumber, latest)
 	if err != nil {
 		return "0x", err
 	}
 
 	if block.Uint64() == latest {
-		code, err := r.forkDB.GetCode(ctx, account)
+		code, err := execCtx.Db.GetCode(ctx, account)
 		if err != nil {
 			return "0x", err
 		}
@@ -264,17 +309,22 @@ func (r *Rpc) GetCode(ctx context.Context, account common.Address, blockNumber s
 	}
 
 	if block.Uint64() > r.cfg.ForkBlock.Uint64() {
-		return getCodeFromBlockStorage(r.executor, account, block.Uint64())
+		return getCodeFromBlockStorage(execCtx.Executor, account, block.Uint64())
 	}
 
 	return getCodeFromReader(ctx, r.readerAndCaller, account, block)
 }
 
 func (r *Rpc) SetBalance(ctx context.Context, account common.Address, balance string) error {
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return err
+	}
+
 	amount, err := parseBigInt(balance)
 	if err != nil {
 		return err
 	}
 
-	return r.forkDB.SetBalance(ctx, account, amount)
+	return execCtx.Db.SetBalance(ctx, account, amount)
 }
