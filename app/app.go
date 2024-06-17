@@ -53,6 +53,8 @@ func Run(
 	go storage.Watcher(ctx, cleanupInterval)
 	ethRpcService := services.NewRpcService(storage, forkConfig, stateReader)
 	smelterRpcService := services.NewSmelterRpc(storage)
+	otterscanRpcService := services.NewOtterscanRpc(ethRpcService, storage)
+	erigonRpcService := services.NewErigonRpc(ethRpcService)
 
 	rpcServer := jsonrpc.NewServer(
 		jsonrpc.WithNamespaceSeparator("_"),
@@ -65,6 +67,8 @@ func Run(
 
 	rpcServer.Register("eth", ethRpcService)
 	rpcServer.Register("smelter", smelterRpcService)
+	rpcServer.Register("ots", otterscanRpcService)
+	rpcServer.Register("erigon", erigonRpcService)
 
 	controller.SetupRouter(httpserver.Router(), rpcServer, logger)
 
