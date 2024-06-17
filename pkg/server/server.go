@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/rahul0tripathi/smelter/pkg/log"
 )
 
@@ -23,6 +24,16 @@ type Router interface {
 func New(address string, logger log.Logger) *Server {
 	app := echo.New()
 	app.HideBanner = true
+	app.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.POST},
+		AllowHeaders: []string{
+			echo.HeaderOrigin,
+			echo.HeaderContentType,
+			echo.HeaderAccept,
+			echo.HeaderAuthorization,
+		},
+	}))
 
 	return &Server{
 		app:     app,
