@@ -237,7 +237,7 @@ func (r *EthRpc) GetTransactionReceipt(ctx context.Context, txHash common.Hash) 
 	return receipt, nil
 }
 
-func (r *EthRpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+func (r *EthRpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (*entity.SerializedTransaction, error) {
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
@@ -246,10 +246,17 @@ func (r *EthRpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (
 	txn := execCtx.Executor.TxnStorage().GetTransaction(txHash)
 	if txn == nil {
 		txn, _, err = r.readerAndCaller.TransactionByHash(ctx, txHash)
-		return txn, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return txn, nil
+	receipt, err := r.GetTransactionReceipt(ctx, txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return entity.SerializeTransaction(txn, receipt), nil
 }
 
 func (r *EthRpc) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
