@@ -180,6 +180,7 @@ type jsonCallMsg struct {
 	GasTipCap string
 	Value     string
 	Input     string
+	Data      string
 }
 
 func (msg *jsonCallMsg) ToEthCallMsg() (call ethereum.CallMsg, err error) {
@@ -238,7 +239,12 @@ func createEthCallMsg(msg jsonCallMsg) (ethereum.CallMsg, error) {
 		}
 	}
 
-	callData, err := decodeHexString(msg.Input)
+	input := msg.Input
+	if msg.Data != "" {
+		input = msg.Data
+	}
+
+	callData, err := decodeHexString(input)
 	if err != nil {
 		return call, err
 	}
