@@ -23,7 +23,7 @@ type readerAndCaller interface {
 	ethereum.ContractCaller
 }
 
-type Rpc struct {
+type EthRpc struct {
 	execStorage     executionCtx
 	readerAndCaller readerAndCaller
 	cfg             entity.ForkConfig
@@ -33,19 +33,19 @@ func NewRpcService(
 	storage executionCtx,
 	cfg entity.ForkConfig,
 	readerAndCaller readerAndCaller,
-) *Rpc {
-	return &Rpc{
+) *EthRpc {
+	return &EthRpc{
 		execStorage:     storage,
 		cfg:             cfg,
 		readerAndCaller: readerAndCaller,
 	}
 }
 
-func (r *Rpc) ChainId(_ context.Context) string {
+func (r *EthRpc) ChainId(_ context.Context) string {
 	return hexutil.Encode(new(big.Int).SetUint64(r.cfg.ChainID).Bytes())
 }
 
-func (r *Rpc) BlockNumber(ctx context.Context) (string, error) {
+func (r *EthRpc) BlockNumber(ctx context.Context) (string, error) {
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return "", err
@@ -59,7 +59,7 @@ func (r *Rpc) BlockNumber(ctx context.Context) (string, error) {
 	return hexutil.Encode(new(big.Int).SetUint64(blockNum).Bytes()), nil
 }
 
-func (r *Rpc) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (r *EthRpc) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func (r *Rpc) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Bloc
 	return storage.Block, nil
 }
 
-func (r *Rpc) GetStorageAt(
+func (r *EthRpc) GetStorageAt(
 	ctx context.Context,
 	account common.Address,
 	slot common.Hash,
@@ -112,7 +112,7 @@ func (r *Rpc) GetStorageAt(
 	return getStateFromReader(ctx, r.readerAndCaller, account, slot, block)
 }
 
-func (r *Rpc) GetHeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+func (r *EthRpc) GetHeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
 	block, err := r.GetBlockByHash(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (r *Rpc) GetHeaderByHash(ctx context.Context, hash common.Hash) (*types.Hea
 	return block.Header(), nil
 }
 
-func (r *Rpc) GetHeaderByNumber(ctx context.Context, number uint64) (*types.Header, error) {
+func (r *EthRpc) GetHeaderByNumber(ctx context.Context, number uint64) (*types.Header, error) {
 	block, err := r.GetBlockByNumber(ctx, number)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (r *Rpc) GetHeaderByNumber(ctx context.Context, number uint64) (*types.Head
 	return block.Header(), nil
 }
 
-func (r *Rpc) Call(
+func (r *EthRpc) Call(
 	ctx context.Context,
 	msg jsonCallMsg,
 	blockNumber string,
@@ -175,7 +175,7 @@ func (r *Rpc) Call(
 	return callOnReader(ctx, r.readerAndCaller, call, block)
 }
 
-func (r *Rpc) SendRawTransaction(
+func (r *EthRpc) SendRawTransaction(
 	ctx context.Context,
 	encoded string,
 ) (string, error) {
@@ -195,13 +195,17 @@ func (r *Rpc) SendRawTransaction(
 		return "0x", err
 	}
 
-	from, ok := ctx.Value(server.Caller{}).(common.Address)
-	if !ok {
-		return "0x", errors.New("failed to parse caller")
+	caller := execCtx.Impersonator
+	if caller == common.HexToAddress("") {
+		from, ok := ctx.Value(server.Caller{}).(common.Address)
+		if !ok {
+			return "0x", errors.New("failed to parse caller")
+		}
+		caller = from
 	}
 
 	msg := ethereum.CallMsg{
-		From:     from,
+		From:     caller,
 		To:       tx.To(),
 		Gas:      tx.Gas(),
 		GasPrice: tx.GasPrice(),
@@ -219,7 +223,7 @@ func (r *Rpc) SendRawTransaction(
 	return txHash.Hex(), nil
 }
 
-func (r *Rpc) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+func (r *EthRpc) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
@@ -233,7 +237,7 @@ func (r *Rpc) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*t
 	return receipt, nil
 }
 
-func (r *Rpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+func (r *EthRpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
@@ -248,15 +252,15 @@ func (r *Rpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (*ty
 	return txn, nil
 }
 
-func (r *Rpc) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+func (r *EthRpc) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
 	return 0, nil
 }
 
-func (r *Rpc) GasPrice(ctx context.Context) (string, error) {
+func (r *EthRpc) GasPrice(ctx context.Context) (string, error) {
 	return new(big.Int).SetInt64(0).String(), nil
 }
 
-func (r *Rpc) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block, error) {
+func (r *EthRpc) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block, error) {
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
@@ -265,7 +269,7 @@ func (r *Rpc) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block
 	return getBlockFromStorageOrReader(execCtx.Executor, r.readerAndCaller, number)
 }
 
-func (r *Rpc) GetBalance(ctx context.Context, account common.Address, blockNumber string) (string, error) {
+func (r *EthRpc) GetBalance(ctx context.Context, account common.Address, blockNumber string) (string, error) {
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return "", err
@@ -288,7 +292,7 @@ func (r *Rpc) GetBalance(ctx context.Context, account common.Address, blockNumbe
 	return getBalanceFromReader(ctx, r.readerAndCaller, account, block)
 }
 
-func (r *Rpc) GetCode(ctx context.Context, account common.Address, blockNumber string) (string, error) {
+func (r *EthRpc) GetCode(ctx context.Context, account common.Address, blockNumber string) (string, error) {
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return "", err
@@ -315,7 +319,7 @@ func (r *Rpc) GetCode(ctx context.Context, account common.Address, blockNumber s
 	return getCodeFromReader(ctx, r.readerAndCaller, account, block)
 }
 
-func (r *Rpc) SetBalance(ctx context.Context, account common.Address, balance string) error {
+func (r *EthRpc) SetBalance(ctx context.Context, account common.Address, balance string) error {
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return err
