@@ -58,7 +58,7 @@ type executionCtx interface {
 
 type otterscanBackend interface {
 	GetCode(ctx context.Context, account common.Address, blockNumber string) (string, error)
-	GetBlockByNumber(ctx context.Context, number uint64) (*types.Block, error)
+	GetBlockByNumber(ctx context.Context, number string, transactionDetailFlag bool) (*entity.SerializedBlock, error)
 	GetTransactionByHash(ctx context.Context, txHash common.Hash) (*entity.SerializedTransaction, error)
 	GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
