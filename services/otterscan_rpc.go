@@ -116,3 +116,12 @@ func (o *OtterscanRPC) GetBlockTransactions(
 
 	return resp, nil
 }
+
+func (o *OtterscanRPC) TraceTransaction(ctx context.Context, hash common.Hash) (entity.TransactionTraces, error) {
+	exec, err := o.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return exec.Executor.TxnStorage().GetTrace(hash), nil
+}

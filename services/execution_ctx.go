@@ -17,6 +17,7 @@ import (
 
 type ExecutionCtx struct {
 	Impersonator common.Address
+	Overrides    entity.StateOverrides
 	CreatedAt    time.Time
 	Executor     executor
 	Db           forkDB
