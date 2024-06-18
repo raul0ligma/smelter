@@ -16,6 +16,7 @@ import (
 	"github.com/rahul0tripathi/smelter/fork"
 	"github.com/rahul0tripathi/smelter/pkg/server"
 	"github.com/rahul0tripathi/smelter/tracer"
+	"go.uber.org/zap"
 )
 
 type readerAndCaller interface {
@@ -23,29 +24,38 @@ type readerAndCaller interface {
 	ethereum.ContractCaller
 }
 
-type Rpc struct {
+type EthRpc struct {
 	execStorage     executionCtx
 	readerAndCaller readerAndCaller
 	cfg             entity.ForkConfig
+	logger          *zap.SugaredLogger
 }
 
 func NewRpcService(
 	storage executionCtx,
 	cfg entity.ForkConfig,
 	readerAndCaller readerAndCaller,
-) *Rpc {
-	return &Rpc{
+) *EthRpc {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync() // flushes buffer, if any
+
+	return &EthRpc{
 		execStorage:     storage,
 		cfg:             cfg,
 		readerAndCaller: readerAndCaller,
+		logger:          logger.Sugar(),
 	}
 }
 
-func (r *Rpc) ChainId(_ context.Context) string {
+func (r *EthRpc) ChainId(ctx context.Context) string {
+	r.logger.Debug("Called ChainId")
+
 	return hexutil.Encode(new(big.Int).SetUint64(r.cfg.ChainID).Bytes())
 }
 
-func (r *Rpc) BlockNumber(ctx context.Context) (string, error) {
+func (r *EthRpc) BlockNumber(ctx context.Context) (string, error) {
+	r.logger.Debug("Called BlockNumber")
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return "", err
@@ -59,7 +69,9 @@ func (r *Rpc) BlockNumber(ctx context.Context) (string, error) {
 	return hexutil.Encode(new(big.Int).SetUint64(blockNum).Bytes()), nil
 }
 
-func (r *Rpc) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (r *EthRpc) GetBlockByHash(ctx context.Context, hash common.Hash) (*entity.SerializedBlock, error) {
+	r.logger.Debug("Called GetBlockByHash", zap.String("hash", hash.Hex()))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
@@ -67,18 +79,25 @@ func (r *Rpc) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Bloc
 
 	storage := execCtx.Executor.BlockStorage().GetBlockByHash(hash)
 	if storage == nil {
-		return r.readerAndCaller.BlockByHash(ctx, hash)
+		b, err := r.readerAndCaller.BlockByHash(ctx, hash)
+		if err != nil {
+			return nil, err
+		}
+
+		return entity.SerializeBlock(b), nil
 	}
 
-	return storage.Block, nil
+	return entity.SerializeBlock(storage.Block), nil
 }
 
-func (r *Rpc) GetStorageAt(
+func (r *EthRpc) GetStorageAt(
 	ctx context.Context,
 	account common.Address,
 	slot common.Hash,
 	blockNumber string,
 ) (string, error) {
+	r.logger.Debug("Called GetStorageAt", zap.String("account", account.Hex()), zap.String("slot", slot.Hex()), zap.String("blockNumber", blockNumber))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return "", err
@@ -112,29 +131,44 @@ func (r *Rpc) GetStorageAt(
 	return getStateFromReader(ctx, r.readerAndCaller, account, slot, block)
 }
 
-func (r *Rpc) GetHeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	block, err := r.GetBlockByHash(ctx, hash)
+func (r *EthRpc) GetHeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	r.logger.Debug("Called GetHeaderByHash", zap.String("hash", hash.Hex()))
+
+	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return block.Header(), nil
+	storage := execCtx.Executor.BlockStorage().GetBlockByHash(hash)
+	if storage == nil {
+		storage.Block, err = r.readerAndCaller.BlockByHash(ctx, hash)
+		if err != nil {
+			return nil, err
+		}
+
+	}
+
+	return storage.Block.Header(), nil
 }
 
-func (r *Rpc) GetHeaderByNumber(ctx context.Context, number uint64) (*types.Header, error) {
-	block, err := r.GetBlockByNumber(ctx, number)
+func (r *EthRpc) GetHeaderByNumber(ctx context.Context, number string) (*types.Header, error) {
+	r.logger.Debug("Called GetHeaderByNumber", zap.String("number", number))
+
+	block, err := r.GetBlockByNumber(ctx, number, false)
 	if err != nil {
 		return nil, err
 	}
 
-	return block.Header(), nil
+	return block.Raw.Header(), nil
 }
 
-func (r *Rpc) Call(
+func (r *EthRpc) Call(
 	ctx context.Context,
 	msg jsonCallMsg,
 	blockNumber string,
 ) (string, error) {
+	r.logger.Debug("Called Call", zap.Any("msg", msg), zap.String("blockNumber", blockNumber))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return "", err
@@ -149,7 +183,7 @@ func (r *Rpc) Call(
 	call, err := createEthCallMsg(msg)
 	t := tracer.NewTracer(false)
 	if block.Uint64() == latest {
-		ret, _, err := execCtx.Executor.Call(ctx, call, t.Hooks(), entity.StateOverrides{})
+		ret, _, err := execCtx.Executor.Call(ctx, call, t, entity.StateOverrides{})
 		if err != nil {
 			return "0x", err
 		}
@@ -164,7 +198,7 @@ func (r *Rpc) Call(
 		}
 
 		db := fork.NewDB(r.readerAndCaller, r.cfg, storage.Accounts, storage.State)
-		ret, _, err := execCtx.Executor.CallWithDB(ctx, call, t.Hooks(), db, entity.StateOverrides{})
+		ret, _, err := execCtx.Executor.CallWithDB(ctx, call, t, db, entity.StateOverrides{})
 		if err != nil {
 			return "0x", err
 		}
@@ -175,10 +209,12 @@ func (r *Rpc) Call(
 	return callOnReader(ctx, r.readerAndCaller, call, block)
 }
 
-func (r *Rpc) SendRawTransaction(
+func (r *EthRpc) SendRawTransaction(
 	ctx context.Context,
 	encoded string,
 ) (string, error) {
+	r.logger.Debug("Called SendRawTransaction", zap.String("encoded", encoded))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return "", err
@@ -195,13 +231,17 @@ func (r *Rpc) SendRawTransaction(
 		return "0x", err
 	}
 
-	from, ok := ctx.Value(server.Caller{}).(common.Address)
-	if !ok {
-		return "0x", errors.New("failed to parse caller")
+	caller := execCtx.Impersonator
+	if caller == common.HexToAddress("") {
+		from, ok := ctx.Value(server.Caller{}).(common.Address)
+		if !ok {
+			return "0x", errors.New("failed to parse caller")
+		}
+		caller = from
 	}
 
 	msg := ethereum.CallMsg{
-		From:     from,
+		From:     caller,
 		To:       tx.To(),
 		Gas:      tx.Gas(),
 		GasPrice: tx.GasPrice(),
@@ -209,17 +249,18 @@ func (r *Rpc) SendRawTransaction(
 		Data:     tx.Data(),
 	}
 
-	txHash, _, _, err := execCtx.Executor.CallAndPersist(ctx, msg, t.Hooks(), entity.StateOverrides{})
+	txHash, _, _, err := execCtx.Executor.CallAndPersist(ctx, msg, t, execCtx.Overrides)
+	fmt.Println(t.Fmt())
 	if err != nil {
 		return "0x", err
 	}
 
-	fmt.Println(t.Fmt())
-
 	return txHash.Hex(), nil
 }
 
-func (r *Rpc) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+func (r *EthRpc) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	r.logger.Debug("Called GetTransactionReceipt", zap.String("txHash", txHash.Hex()))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
@@ -233,7 +274,9 @@ func (r *Rpc) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*t
 	return receipt, nil
 }
 
-func (r *Rpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+func (r *EthRpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (*entity.SerializedTransaction, error) {
+	r.logger.Debug("Called GetTransactionByHash", zap.String("txHash", txHash.Hex()))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
@@ -242,30 +285,52 @@ func (r *Rpc) GetTransactionByHash(ctx context.Context, txHash common.Hash) (*ty
 	txn := execCtx.Executor.TxnStorage().GetTransaction(txHash)
 	if txn == nil {
 		txn, _, err = r.readerAndCaller.TransactionByHash(ctx, txHash)
-		return txn, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return txn, nil
+	receipt, err := r.GetTransactionReceipt(ctx, txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return entity.SerializeTransaction(txn, receipt), nil
 }
 
-func (r *Rpc) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+func (r *EthRpc) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+	r.logger.Debug("Called EstimateGas", zap.Any("msg", msg))
 	return 0, nil
 }
 
-func (r *Rpc) GasPrice(ctx context.Context) (string, error) {
-	return new(big.Int).SetInt64(0).String(), nil
+func (r *EthRpc) GasPrice(ctx context.Context) (string, error) {
+	r.logger.Debug("Called GasPrice")
+	return "0x0", nil
 }
 
-func (r *Rpc) GetBlockByNumber(ctx context.Context, number uint64) (*types.Block, error) {
+func (r *EthRpc) GetBlockByNumber(
+	ctx context.Context,
+	number string,
+	_ bool,
+) (*entity.SerializedBlock, error) {
+	r.logger.Debug("Called GetBlockByNumber", zap.String("number", number))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return getBlockFromStorageOrReader(execCtx.Executor, r.readerAndCaller, number)
+	num, err := parseBigInt(number)
+	if err != nil {
+		return nil, err
+	}
+
+	return getBlockFromStorageOrReader(execCtx.Executor, r.readerAndCaller, num.Uint64())
 }
 
-func (r *Rpc) GetBalance(ctx context.Context, account common.Address, blockNumber string) (string, error) {
+func (r *EthRpc) GetBalance(ctx context.Context, account common.Address, blockNumber string) (string, error) {
+	r.logger.Debug("Called GetBalance", zap.String("account", account.Hex()), zap.String("blockNumber", blockNumber))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return "", err
@@ -288,7 +353,9 @@ func (r *Rpc) GetBalance(ctx context.Context, account common.Address, blockNumbe
 	return getBalanceFromReader(ctx, r.readerAndCaller, account, block)
 }
 
-func (r *Rpc) GetCode(ctx context.Context, account common.Address, blockNumber string) (string, error) {
+func (r *EthRpc) GetCode(ctx context.Context, account common.Address, blockNumber string) (string, error) {
+	r.logger.Debug("Called GetCode", zap.String("account", account.Hex()), zap.String("blockNumber", blockNumber))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return "", err
@@ -315,7 +382,9 @@ func (r *Rpc) GetCode(ctx context.Context, account common.Address, blockNumber s
 	return getCodeFromReader(ctx, r.readerAndCaller, account, block)
 }
 
-func (r *Rpc) SetBalance(ctx context.Context, account common.Address, balance string) error {
+func (r *EthRpc) SetBalance(ctx context.Context, account common.Address, balance string) error {
+	r.logger.Debug("Called SetBalance", zap.String("account", account.Hex()), zap.String("balance", balance))
+
 	execCtx, err := r.execStorage.GetOrCreate(ctx)
 	if err != nil {
 		return err
@@ -327,4 +396,9 @@ func (r *Rpc) SetBalance(ctx context.Context, account common.Address, balance st
 	}
 
 	return execCtx.Db.SetBalance(ctx, account, amount)
+}
+
+func (r *EthRpc) GetTransactionCount(_ context.Context, account common.Address, block string) (string, error) {
+	r.logger.Debug("Called GetTransactionCount", zap.String("account", account.Hex()), zap.String("block", block))
+	return "0x0", nil
 }

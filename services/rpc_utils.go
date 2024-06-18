@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rahul0tripathi/smelter/entity"
 	"github.com/rahul0tripathi/smelter/fork"
 )
@@ -39,12 +39,22 @@ func parseAndValidateBlockNumber(blockNumber string, latest uint64) (*big.Int, e
 	return nil, fmt.Errorf("failed to parse block number %s", blockNumber)
 }
 
-func getBlockFromStorageOrReader(exec executor, reader entity.ChainStateReader, number uint64) (*types.Block, error) {
+func getBlockFromStorageOrReader(
+	exec executor,
+	reader entity.ChainStateReader,
+	number uint64,
+) (*entity.SerializedBlock, error) {
 	storage := exec.BlockStorage().GetBlockByNumber(number)
 	if storage != nil {
-		return storage.Block, nil
+		return entity.SerializeBlock(storage.Block), nil
 	}
-	return reader.BlockByNumber(context.Background(), new(big.Int).SetUint64(number))
+	block, err := reader.BlockByNumber(context.Background(), new(big.Int).SetUint64(number))
+	if err != nil {
+		return nil, err
+	}
+
+	return entity.SerializeBlock(block), nil
+
 }
 
 func getBalanceFromForkDB(ctx context.Context, forkDB forkDB, account common.Address) (string, error) {
@@ -61,6 +71,15 @@ func getBalanceFromForkDB(ctx context.Context, forkDB forkDB, account common.Add
 }
 
 func parseBigInt(blockNumber string) (*big.Int, error) {
+	if len(blockNumber) > 2 && blockNumber[:2] != "0x" {
+		num, err := strconv.ParseUint(blockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		return new(big.Int).SetUint64(num), nil
+	}
+
 	if len(blockNumber)%2 != 0 {
 		blockNumber = blockNumber[:2] + "0" + blockNumber[2:]
 	}
@@ -69,6 +88,7 @@ func parseBigInt(blockNumber string) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return new(big.Int).SetBytes(numBytes), nil
 }
 
@@ -180,6 +200,7 @@ type jsonCallMsg struct {
 	GasTipCap string
 	Value     string
 	Input     string
+	Data      string
 }
 
 func (msg *jsonCallMsg) ToEthCallMsg() (call ethereum.CallMsg, err error) {
@@ -238,7 +259,12 @@ func createEthCallMsg(msg jsonCallMsg) (ethereum.CallMsg, error) {
 		}
 	}
 
-	callData, err := decodeHexString(msg.Input)
+	input := msg.Input
+	if msg.Data != "" {
+		input = msg.Data
+	}
+
+	callData, err := decodeHexString(input)
 	if err != nil {
 		return call, err
 	}

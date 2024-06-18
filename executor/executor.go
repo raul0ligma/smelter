@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/holiman/uint256"
 	"github.com/rahul0tripathi/smelter/config"
 	"github.com/rahul0tripathi/smelter/entity"
@@ -57,14 +56,14 @@ func NewExecutor(
 func (e *SerialExecutor) CallAndPersist(
 	ctx context.Context,
 	tx ethereum.CallMsg,
-	hooks *tracing.Hooks,
+	tracer entity.TraceProvider,
 	overrides entity.StateOverrides,
 ) (txHash *common.Hash, ret []byte, leftOverGas uint64, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	executionDB := statedb.NewDB(ctx, e.db)
-	chainCfg, evmCfg := e.cfg.ExecutionConfig(hooks)
+	chainCfg, evmCfg := e.cfg.ExecutionConfig(tracer.Hooks())
 	if err = executionDB.ApplyOverrides(overrides); err != nil {
 		return nil, nil, 0, err
 	}
@@ -88,7 +87,7 @@ func (e *SerialExecutor) CallAndPersist(
 		return
 	}
 
-	txHash = e.roll(ctx, tx, leftOverGas, executionDB)
+	txHash = e.roll(ctx, tx, leftOverGas, executionDB, tracer)
 	return
 }
 
@@ -97,6 +96,7 @@ func (e *SerialExecutor) roll(
 	msg ethereum.CallMsg,
 	left uint64,
 	executionDB *statedb.StateDB,
+	traceProvider entity.TraceProvider,
 ) *common.Hash {
 	e.db.ApplyStorage(executionDB.Dirty().GetAccountStorage())
 	e.db.ApplyState(executionDB.Dirty().GetAccountState())
@@ -127,6 +127,7 @@ func (e *SerialExecutor) roll(
 
 	e.prevBlockHash = hash
 	e.prevBlockNum = block.Uint64()
+	e.txn.AddTrace(tx.Hash(), traceProvider.OtterTrace())
 
 	txHash := tx.Hash()
 	return &txHash
@@ -135,7 +136,7 @@ func (e *SerialExecutor) roll(
 func (e *SerialExecutor) Call(
 	ctx context.Context,
 	tx ethereum.CallMsg,
-	hooks *tracing.Hooks,
+	tracer entity.TraceProvider,
 	overrides entity.StateOverrides,
 ) (ret []byte, leftOverGas uint64, err error) {
 	e.mu.Lock()
@@ -146,7 +147,7 @@ func (e *SerialExecutor) Call(
 		return nil, 0, err
 	}
 
-	chainCfg, evmCfg := e.cfg.ExecutionConfig(hooks)
+	chainCfg, evmCfg := e.cfg.ExecutionConfig(tracer.Hooks())
 	env := vm.NewEVM(e.cfg.BlockContext(new(big.Int).Add(e.cfg.ForkConfig.ForkBlock, new(big.Int).SetUint64(1)),
 		new(big.Int),
 		uint64(time.Now().Unix())),
@@ -169,7 +170,7 @@ func (e *SerialExecutor) Call(
 func (e *SerialExecutor) CallWithDB(
 	ctx context.Context,
 	tx ethereum.CallMsg,
-	hooks *tracing.Hooks,
+	tracer entity.TraceProvider,
 	db *fork.DB,
 	overrides entity.StateOverrides,
 ) (ret []byte, leftOverGas uint64, err error) {
@@ -181,7 +182,7 @@ func (e *SerialExecutor) CallWithDB(
 		return nil, 0, err
 	}
 
-	chainCfg, evmCfg := e.cfg.ExecutionConfig(hooks)
+	chainCfg, evmCfg := e.cfg.ExecutionConfig(tracer.Hooks())
 	env := vm.NewEVM(e.cfg.BlockContext(new(big.Int).Add(e.cfg.ForkConfig.ForkBlock, new(big.Int).SetUint64(1)),
 		new(big.Int),
 		uint64(time.Now().Unix())),

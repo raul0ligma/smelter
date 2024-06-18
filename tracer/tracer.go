@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
-	types2 "github.com/rahul0tripathi/smelter/types"
+	"github.com/rahul0tripathi/smelter/entity"
+	internal "github.com/rahul0tripathi/smelter/types"
+	"github.com/rahul0tripathi/smelter/utils"
 )
 
 type TraceLog struct {
@@ -42,6 +44,37 @@ func (l *LogTracer) Fmt() string {
 	return op
 }
 
+func (l *LogTracer) OtterTrace() entity.TransactionTraces {
+	traces := make(entity.TransactionTraces, 0)
+
+	for _, log := range l.Logs {
+		if log.Type == "RETURN" {
+			traces = append(traces, entity.TransactionTrace{
+				Type:   log.Type,
+				Depth:  uint(log.Depth),
+				From:   common.HexToAddress("").Hex(),
+				To:     common.HexToAddress("").Hex(),
+				Value:  "0x00",
+				Input:  "0x",
+				Output: "0x",
+			})
+			continue
+		}
+
+		traces = append(traces, entity.TransactionTrace{
+			Type:   log.Type,
+			Depth:  uint(log.Depth),
+			From:   log.From,
+			To:     log.To,
+			Value:  log.Value,
+			Input:  log.Text,
+			Output: "0x",
+		})
+	}
+
+	return traces
+}
+
 func (l *LogTracer) Hooks() *tracing.Hooks {
 	return &tracing.Hooks{
 		OnTxStart: func(vm *tracing.VMContext, tx *types.Transaction, from common.Address) {
@@ -68,15 +101,15 @@ func (l *LogTracer) Hooks() *tracing.Hooks {
 			})
 		},
 		OnEnter: func(depth int, op byte, from, to common.Address, input []byte, gas uint64, value *big.Int) {
-			l.currentDepth++
 			l.Logs = append(l.Logs, TraceLog{
 				Type:  opCodeToString[op],
 				Depth: l.currentDepth,
 				From:  from.Hex(),
 				To:    to.Hex(),
 				Text:  hexutil.Encode(input),
-				Value: fmt.Sprintf("%+v", value),
+				Value: utils.Big2Hex(value),
 			})
+			l.currentDepth++
 		},
 		OnExit: func(depth int, output []byte, gasUsed uint64, err error, reverted bool) {
 			l.currentDepth--
@@ -88,6 +121,7 @@ func (l *LogTracer) Hooks() *tracing.Hooks {
 				Text:  fmt.Sprintf("%s (%d) ERR: (%v) REVERTED: %t", hexutil.Encode(output), gasUsed, err, reverted),
 				Value: "",
 			})
+
 		},
 		OnOpcode: func(
 			pc uint64,
@@ -169,7 +203,7 @@ func (l *LogTracer) Hooks() *tracing.Hooks {
 				Type:  "EMIT",
 				Depth: l.currentDepth,
 				From:  log.Address.Hex(),
-				To:    types2.Address0x.Hex(),
+				To:    internal.Address0x.Hex(),
 				Text:  fmt.Sprintf("%+v", log),
 				Value: "",
 			})

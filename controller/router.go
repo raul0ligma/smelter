@@ -12,5 +12,10 @@ func SetupRouter(
 	rpcServer *jsonrpc.RPCServer,
 	logger log.Logger,
 ) {
-	router.POST("/v1/rpc/:key", echo.WrapHandler(rpcServer), server.SetExecutionContextMw, server.SetCallerContextMw, server.SetResponseHeaderMw)
+
+	router.POST("/v1/rpc/:key", echo.WrapHandler(rpcServer),
+		server.SetExecutionContextMw,
+		server.SetCallerContextMw,
+		server.SetResponseHeaderMw,
+	)
 }

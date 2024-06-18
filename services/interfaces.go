@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/tracing"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rahul0tripathi/smelter/entity"
 	"github.com/rahul0tripathi/smelter/fork"
 )
@@ -15,19 +15,19 @@ type executor interface {
 	CallAndPersist(
 		ctx context.Context,
 		tx ethereum.CallMsg,
-		hooks *tracing.Hooks,
+		tracer entity.TraceProvider,
 		overrides entity.StateOverrides,
 	) (hash *common.Hash, ret []byte, leftOverGas uint64, err error)
 	Call(
 		ctx context.Context,
 		tx ethereum.CallMsg,
-		hooks *tracing.Hooks,
+		tracer entity.TraceProvider,
 		overrides entity.StateOverrides,
 	) (ret []byte, leftOverGas uint64, err error)
 	CallWithDB(
 		ctx context.Context,
 		tx ethereum.CallMsg,
-		hooks *tracing.Hooks,
+		tracer entity.TraceProvider,
 		db *fork.DB,
 		overrides entity.StateOverrides,
 	) (ret []byte, leftOverGas uint64, err error)
@@ -53,4 +53,11 @@ type forkDB interface {
 
 type executionCtx interface {
 	GetOrCreate(ctx context.Context) (*ExecutionCtx, error)
+}
+
+type otterscanBackend interface {
+	GetCode(ctx context.Context, account common.Address, blockNumber string) (string, error)
+	GetBlockByNumber(ctx context.Context, number string, transactionDetailFlag bool) (*entity.SerializedBlock, error)
+	GetTransactionByHash(ctx context.Context, txHash common.Hash) (*entity.SerializedTransaction, error)
+	GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }

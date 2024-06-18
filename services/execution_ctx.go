@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rahul0tripathi/smelter/config"
 	"github.com/rahul0tripathi/smelter/entity"
 	executorPkg "github.com/rahul0tripathi/smelter/executor"
@@ -15,9 +16,11 @@ import (
 )
 
 type ExecutionCtx struct {
-	CreatedAt time.Time
-	Executor  executor
-	Db        forkDB
+	Impersonator common.Address
+	Overrides    entity.StateOverrides
+	CreatedAt    time.Time
+	Executor     executor
+	Db           forkDB
 }
 
 type ExecutionCtxStorage struct {
