@@ -24,7 +24,7 @@ func (m *mockProvider) BlockByHash(ctx context.Context, hash common.Hash) (*type
 }
 
 func (m *mockProvider) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return entity.NewBlock(crypto.Keccak256Hash([]byte("genesis")), new(big.Int).SetInt64(1), nil, nil), nil
+	return entity.NewBlock(crypto.Keccak256Hash([]byte("genesis")), new(big.Int).SetInt64(1), nil, nil, 0), nil
 }
 
 func (m *mockProvider) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {

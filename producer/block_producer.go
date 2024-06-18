@@ -46,7 +46,7 @@ func MineBlockWithSingleTransaction(
 		TransactionIndex:  0,
 	}
 
-	block := entity.NewBlock(prevBlockHash, blockNumber, types.Transactions{tx}, types.Receipts{receipt})
+	block := entity.NewBlock(prevBlockHash, blockNumber, types.Transactions{tx}, types.Receipts{receipt}, receipt.GasUsed)
 	receipt.BlockHash = block.Hash()
 	txStore.AddTransaction(tx)
 	txStore.AddReceipt(receipt)
