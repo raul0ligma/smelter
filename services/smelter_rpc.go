@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/rahul0tripathi/smelter/entity"
 )
 
 type SmelterRpc struct {
@@ -47,4 +48,14 @@ func (s *SmelterRpc) GetState(ctx context.Context) (json.RawMessage, error) {
 	}
 
 	return v, nil
+}
+
+func (s *SmelterRpc) SetStateOverrides(ctx context.Context, overrides entity.StateOverrides) error {
+	execCtx, err := s.execStorage.GetOrCreate(ctx)
+	if err != nil {
+		return err
+	}
+
+	execCtx.Overrides = overrides
+	return nil
 }
