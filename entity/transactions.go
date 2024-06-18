@@ -97,6 +97,7 @@ type TransactionStorage struct {
 	mu       sync.RWMutex
 	txs      map[common.Hash]*types.Transaction
 	receipts map[common.Hash]*types.Receipt
+	traces   map[common.Hash]TransactionTraces
 }
 
 func NewTransactionStorage() *TransactionStorage {
@@ -132,6 +133,18 @@ func (ts *TransactionStorage) GetReceipt(hash common.Hash) *types.Receipt {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
 	return ts.receipts[hash]
+}
+
+func (ts *TransactionStorage) AddTrace(hash common.Hash, trace TransactionTraces) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.traces[hash] = trace
+}
+
+func (ts *TransactionStorage) GetTrace(hash common.Hash) TransactionTraces {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	return ts.traces[hash]
 }
 
 func (ts *TransactionStorage) Apply(s *TransactionStorage) {
