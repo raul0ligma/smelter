@@ -124,7 +124,11 @@ curl --request POST \
 | `smelter_setStateOverrides` | Sets state overrides with the provided values. all further executions are executed with these values |
 
 ## Demo
+
 https://github.com/rahul0tripathi/smelter/assets/48456755/43de1c0d-7ac2-43fd-92f7-4a829e2b8b57
+
+<img width="1796" alt="smelter" src="https://github.com/rahul0tripathi/smelter/assets/48456755/ea8852b5-5e3d-4f61-9a34-955929815c08">
+<img width="1796" alt="otterscan" src="https://github.com/rahul0tripathi/smelter/assets/48456755/daeafac8-8e13-4662-9528-4bb0ebbf8dbe">
 
 ### Refrences
 - [https://github.com/ethereum/go-ethereum](https://github.com/ethereum/go-ethereum)
