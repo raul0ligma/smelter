@@ -183,7 +183,7 @@ func (r *EthRpc) Call(
 	call, err := createEthCallMsg(msg)
 	t := tracer.NewTracer(false)
 	if block.Uint64() == latest {
-		ret, _, err := execCtx.Executor.Call(ctx, call, t.Hooks(), entity.StateOverrides{})
+		ret, _, err := execCtx.Executor.Call(ctx, call, t, entity.StateOverrides{})
 		if err != nil {
 			return "0x", err
 		}
@@ -198,7 +198,7 @@ func (r *EthRpc) Call(
 		}
 
 		db := fork.NewDB(r.readerAndCaller, r.cfg, storage.Accounts, storage.State)
-		ret, _, err := execCtx.Executor.CallWithDB(ctx, call, t.Hooks(), db, entity.StateOverrides{})
+		ret, _, err := execCtx.Executor.CallWithDB(ctx, call, t, db, entity.StateOverrides{})
 		if err != nil {
 			return "0x", err
 		}
@@ -249,12 +249,11 @@ func (r *EthRpc) SendRawTransaction(
 		Data:     tx.Data(),
 	}
 
-	txHash, _, _, err := execCtx.Executor.CallAndPersist(ctx, msg, t.Hooks(), entity.StateOverrides{})
+	txHash, _, _, err := execCtx.Executor.CallAndPersist(ctx, msg, t, execCtx.Overrides)
+	fmt.Println(t.Fmt())
 	if err != nil {
 		return "0x", err
 	}
-
-	fmt.Println(t.Fmt())
 
 	return txHash.Hex(), nil
 }

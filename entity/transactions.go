@@ -104,6 +104,7 @@ func NewTransactionStorage() *TransactionStorage {
 	return &TransactionStorage{
 		txs:      make(map[common.Hash]*types.Transaction),
 		receipts: make(map[common.Hash]*types.Receipt),
+		traces:   make(map[common.Hash]TransactionTraces),
 	}
 }
 
