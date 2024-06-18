@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rahul0tripathi/smelter/entity"
@@ -71,12 +72,12 @@ func (o *OtterscanRPC) SearchTransactionsBefore(
 }
 
 func (o *OtterscanRPC) GetBlockDetails(ctx context.Context, block uint64) (*entity.BlockDetailResponse, error) {
-	b, err := o.backend.GetBlockByNumber(ctx, block)
+	b, err := o.backend.GetBlockByNumber(ctx, strconv.FormatUint(block, 10), false)
 	if err != nil {
 		return nil, err
 	}
 
-	return entity.SerializeBlockDetail(b), nil
+	return entity.SerializeBlockDetail(b.Raw), nil
 }
 
 func (o *OtterscanRPC) GetTransactionError(_ context.Context, _ common.Hash) (string, error) {
@@ -89,21 +90,21 @@ func (o *OtterscanRPC) GetBlockTransactions(
 	from int,
 	to int,
 ) (*entity.BlockTransactionsResponse, error) {
-	b, err := o.backend.GetBlockByNumber(ctx, block)
+	b, err := o.backend.GetBlockByNumber(ctx, strconv.FormatUint(block, 10), false)
 	if err != nil {
 		return nil, err
 	}
 
 	resp := &entity.BlockTransactionsResponse{
 		FullBlock: entity.FullBlock{
-			BlockData:    entity.SerializeBlockDetail(b).Block,
+			BlockData:    entity.SerializeBlockDetailFromSeralizedBlock(b).Block,
 			Transactions: make([]*entity.SerializedTransaction, 0),
 		},
 		Receipts: make([]*entity.SerializedReceipt, 0),
 	}
 
-	txns := b.Transactions()
-	for i := 0; i < 2 && i < len(b.Transactions()); i++ {
+	txns := b.Raw.Transactions()
+	for i := 0; i < 2 && i < len(b.Raw.Transactions()); i++ {
 		receipt, err := o.backend.GetTransactionReceipt(ctx, txns[i].Hash())
 		if err != nil {
 			return nil, err

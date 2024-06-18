@@ -2,10 +2,10 @@ package entity
 
 import (
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	types2 "github.com/rahul0tripathi/smelter/types"
 	"github.com/rahul0tripathi/smelter/utils"
 )
 
@@ -42,6 +42,8 @@ type BlockData struct {
 	TransactionCount      uint64         `json:"transactionCount"`
 	Size                  string         `json:"size"`
 	Sha3Uncles            common.Hash    `json:"sha3Uncles"`
+	Uncles                []interface{}  `json:"uncles"`
+	Raw                   *types.Block   `json:"raw"`
 }
 
 type BlockDetailResponse struct {
@@ -64,23 +66,27 @@ func SerializeBlockDetail(block *types.Block) *BlockDetailResponse {
 			Hash:             block.Hash(),
 			ParentHash:       block.ParentHash(),
 			Number:           block.Number(),
-			Timestamp:        uint64(time.Now().Unix()),
+			Timestamp:        block.Time(),
 			Nonce:            utils.Big2Hex(new(big.Int).SetUint64(block.Nonce())),
 			Difficulty:       block.Difficulty(),
 			GasLimit:         block.GasLimit(),
 			GasUsed:          block.GasUsed(),
-			Miner:            common.Address{},
+			Miner:            types2.Address0xSmelter,
 			ReceiptsRoot:     block.ReceiptHash(),
 			StateRoot:        block.Root(),
 			Transactions:     txs,
-			ExtraData:        "0x00",
+			ExtraData:        "0x",
 			TransactionCount: uint64(len(txs)),
-			Size:             "0x0",
-			TotalDifficulty:  "0x0",
+			Size:             utils.Big2Hex(new(big.Int).SetUint64(block.Size())),
+			TotalDifficulty:  utils.Big2Hex(block.Difficulty()),
 		},
 		Issuance:  BlockIssuance{},
 		TotalFees: "0x0",
 	}
+}
+
+func SerializeBlockDetailFromSeralizedBlock(b *SerializedBlock) *BlockDetailResponse {
+	return SerializeBlockDetail(b.Raw)
 }
 
 type FullBlock struct {
@@ -92,3 +98,15 @@ type BlockTransactionsResponse struct {
 	FullBlock FullBlock            `json:"fullblock"`
 	Receipts  []*SerializedReceipt `json:"receipts"`
 }
+
+type TransactionTrace struct {
+	Type   string `json:"type"`
+	Depth  uint   `json:"depth"`
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Value  string `json:"value"`
+	Input  string `json:"input"`
+	Output string `json:"output"`
+}
+
+type TransactionTraces []TransactionTrace

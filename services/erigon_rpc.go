@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/rahul0tripathi/smelter/entity"
 )
@@ -17,10 +18,10 @@ func NewErigonRpc(backend otterscanBackend) *ErigonRpc {
 }
 
 func (o *ErigonRpc) GetHeaderByNumber(ctx context.Context, blockNum uint64) (*entity.BlockData, error) {
-	b, err := o.backend.GetBlockByNumber(ctx, blockNum)
+	b, err := o.backend.GetBlockByNumber(ctx, strconv.FormatUint(blockNum, 10), false)
 	if err != nil {
 		return nil, err
 	}
 
-	return &entity.SerializeBlockDetail(b).Block, nil
+	return &entity.SerializeBlockDetailFromSeralizedBlock(b).Block, nil
 }
