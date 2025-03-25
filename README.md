@@ -1,8 +1,9 @@
-
 # SMELTER 🛠
+
 A local Ethereum node written in go powered by geth, supports multiple forks and simulation, with support for otterscan block explorer
 
 ### Installation
+
 ```bash
 git clone github.com/rahul0tripathi/smelter
 cd smelter
@@ -10,6 +11,7 @@ go run cmd/main.go --rpcURL https://eth.llamarpc.com --stateTTL 5m --cleanupInte
 ```
 
 ### Request
+
 ```bash
 curl --request POST \
   --url http://localhost:6969/v1/rpc/:key \
@@ -30,7 +32,7 @@ curl --request POST \
 ```bash
 
 
-	███████╗███╗   ███╗███████╗██╗  ████████╗███████╗██████╗ 
+	███████╗███╗   ███╗███████╗██╗  ████████╗███████╗██████╗
 	██╔════╝████╗ ████║██╔════╝██║  ╚══██╔══╝██╔════╝██╔══██╗
 	███████╗██╔████╔██║█████╗  ██║     ██║   █████╗  ██████╔╝
 	╚════██║██║╚██╔╝██║██╔══╝  ██║     ██║   ██╔══╝  ██╔══██╗
@@ -79,49 +81,56 @@ curl --request POST \
 ## Supported Methods
 
 ### ETH JSON RPC Namespace
-| Method Name |   
-|---------------------------------|
-| eth_chainId  | 
-| eth_blockNumber | 
-| eth_getBlockByHash |
-| eth_getStorageAt | 
-| eth_getHeaderByHash |
-| eth_getHeaderByNumber |
-| eth_call |  
-| eth_sendRawTransaction |
-| eth_getTransactionReceipt | 
-| eth_getTransactionByHash | 
-| eth_estimateGas | 
-| eth_gasPrice | 
-| eth_getBlockByNumber | 
-| eth_getBalance | 
-| eth_getCode | 
-| eth_setBalance | 
-| eth_getTransactionCount | 
+
+| Method Name               |
+| ------------------------- |
+| eth_chainId               |
+| eth_blockNumber           |
+| eth_getBlockByHash        |
+| eth_getStorageAt          |
+| eth_getHeaderByHash       |
+| eth_getHeaderByNumber     |
+| eth_call                  |
+| eth_sendRawTransaction    |
+| eth_getTransactionReceipt |
+| eth_getTransactionByHash  |
+| eth_estimateGas           |
+| eth_gasPrice              |
+| eth_getBlockByNumber      |
+| eth_getBalance            |
+| eth_getCode               |
+| eth_setBalance            |
+| eth_getTransactionCount   |
 
 - [ETH JSON RPC Spec](https://ethereum.github.io/execution-apis/api-documentation/)
 
 ### OTTERSCAN Namespace
-| Method Name |   
-|---------------------------------|
-| ots_getApiLevel |
-| ots_hasCode |
-| ots_getContractCreator |
+
+| Method Name                  |
+| ---------------------------- |
+| ots_getApiLevel              |
+| ots_hasCode                  |
+| ots_getContractCreator       |
 | ots_searchTransactionsBefore |
-| ots_getBlockDetails |
-| ots_getTransactionError |
-| ots_getBlockTransactions |
-| ots_traceTransaction | 
+| ots_getBlockDetails          |
+| ots_getTransactionError      |
+| ots_getBlockTransactions     |
+| ots_traceTransaction         |
 
 - [OTTERSCAN RPC Spec](https://github.com/otterscan/otterscan/blob/develop/docs/custom-jsonrpc.md)
 
 ### SMELTER Namespace
-| Method Name | Description |
-|--------------------------------------|--------------------------------------------------|
-| `smelter_impersonateAccount` | Impersonates an account with the given address.all further executions are executed with this as sender |
-| `smelter_stopImpersonatingAccount` | Stops impersonating the current account. |
-| `smelter_getState` | Retrieves the current state as a JSON message. |
-| `smelter_setStateOverrides` | Sets state overrides with the provided values. all further executions are executed with these values |
+
+| Method Name                        | Description                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `smelter_impersonateAccount`       | Impersonates an account with the given address.all further executions are executed with this as sender |
+| `smelter_stopImpersonatingAccount` | Stops impersonating the current account.                                                               |
+| `smelter_getState`                 | Retrieves the current state as a JSON message.                                                         |
+| `smelter_setStateOverrides`        | Sets state overrides with the provided values. all further executions are executed with these values   |
+
+## Architecture
+
+![Architecture](./docs/smelter.svg)
 
 ## Demo
 
@@ -131,5 +140,6 @@ https://github.com/rahul0tripathi/smelter/assets/48456755/43de1c0d-7ac2-43fd-92f
 <img width="1796" alt="otterscan" src="https://github.com/rahul0tripathi/smelter/assets/48456755/daeafac8-8e13-4662-9528-4bb0ebbf8dbe">
 
 ### Refrences
+
 - [https://github.com/ethereum/go-ethereum](https://github.com/ethereum/go-ethereum)
 - [https://github.com/foundry-rs/foundry/blob/master/crates/anvil](https://github.com/foundry-rs/foundry/blob/master/crates/anvil/)
