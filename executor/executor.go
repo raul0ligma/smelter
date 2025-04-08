@@ -71,13 +71,12 @@ func (e *SerialExecutor) CallAndPersist(
 	env := vm.NewEVM(e.cfg.BlockContext(new(big.Int).Add(e.cfg.ForkConfig.ForkBlock, new(big.Int).SetUint64(1)),
 		new(big.Int),
 		uint64(time.Now().Unix())),
-		e.cfg.TxCtx(tx.From),
 		executionDB,
 		chainCfg,
 		evmCfg)
 	value, _ := uint256.FromBig(tx.Value)
 	ret, leftOverGas, err = env.Call(
-		vm.AccountRef(tx.From),
+		tx.From,
 		*tx.To,
 		tx.Data,
 		tx.Gas,
@@ -151,13 +150,12 @@ func (e *SerialExecutor) Call(
 	env := vm.NewEVM(e.cfg.BlockContext(new(big.Int).Add(e.cfg.ForkConfig.ForkBlock, new(big.Int).SetUint64(1)),
 		new(big.Int),
 		uint64(time.Now().Unix())),
-		e.cfg.TxCtx(tx.From),
 		executionDB,
 		chainCfg,
 		evmCfg)
 	value, _ := uint256.FromBig(tx.Value)
 	ret, leftOverGas, err = env.Call(
-		vm.AccountRef(tx.From),
+		tx.From,
 		*tx.To,
 		tx.Data,
 		tx.Gas,
@@ -186,13 +184,12 @@ func (e *SerialExecutor) CallWithDB(
 	env := vm.NewEVM(e.cfg.BlockContext(new(big.Int).Add(e.cfg.ForkConfig.ForkBlock, new(big.Int).SetUint64(1)),
 		new(big.Int),
 		uint64(time.Now().Unix())),
-		e.cfg.TxCtx(tx.From),
 		executionDB,
 		chainCfg,
 		evmCfg)
 	value, _ := uint256.FromBig(tx.Value)
 	ret, leftOverGas, err = env.Call(
-		vm.AccountRef(tx.From),
+		tx.From,
 		*tx.To,
 		tx.Data,
 		tx.Gas,
