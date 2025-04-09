@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/rahul0tripathi/smelter/entity"
 	"github.com/rahul0tripathi/smelter/vm"
 )
@@ -48,8 +49,13 @@ func (c *Config) TxCtx(origin common.Address) vm.TxContext {
 
 func (c *Config) BlockContext(blockNumber *big.Int, baseFee *big.Int, time uint64) vm.BlockContext {
 	return vm.BlockContext{
-		CanTransfer: vm.CanTransfer,
-		Transfer:    vm.Transfer,
+		CanTransfer: func(db vm.StateDB, addr common.Address, amount *uint256.Int) bool {
+			return db.GetBalance(addr).Cmp(amount) >= 0
+		},
+		Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *uint256.Int) {
+			db.SubBalance(sender, amount, tracing.BalanceChangeTransfer)
+			db.AddBalance(recipient, amount, tracing.BalanceChangeTransfer)
+		},
 		GetHash: func(u uint64) common.Hash {
 			return common.HexToHash(fmt.Sprintf("%d", u))
 		},
@@ -71,21 +77,20 @@ func (c *Config) ExecutionConfig(tracer *tracing.Hooks) (*params.ChainConfig, vm
 func setDefaults(cfg *Config) *Config {
 	if cfg.ChainConfig == nil {
 		cfg.ChainConfig = &params.ChainConfig{
-			ChainID:                       big.NewInt(1),
-			HomesteadBlock:                new(big.Int),
-			DAOForkBlock:                  new(big.Int),
-			DAOForkSupport:                false,
-			EIP150Block:                   new(big.Int),
-			EIP155Block:                   new(big.Int),
-			EIP158Block:                   new(big.Int),
-			ByzantiumBlock:                new(big.Int),
-			ConstantinopleBlock:           new(big.Int),
-			PetersburgBlock:               new(big.Int),
-			IstanbulBlock:                 new(big.Int),
-			MuirGlacierBlock:              new(big.Int),
-			BerlinBlock:                   new(big.Int),
-			LondonBlock:                   new(big.Int),
-			TerminalTotalDifficultyPassed: true,
+			ChainID:             big.NewInt(1),
+			HomesteadBlock:      new(big.Int),
+			DAOForkBlock:        new(big.Int),
+			DAOForkSupport:      false,
+			EIP150Block:         new(big.Int),
+			EIP155Block:         new(big.Int),
+			EIP158Block:         new(big.Int),
+			ByzantiumBlock:      new(big.Int),
+			ConstantinopleBlock: new(big.Int),
+			PetersburgBlock:     new(big.Int),
+			IstanbulBlock:       new(big.Int),
+			MuirGlacierBlock:    new(big.Int),
+			BerlinBlock:         new(big.Int),
+			LondonBlock:         new(big.Int),
 		}
 	}
 
@@ -93,7 +98,7 @@ func setDefaults(cfg *Config) *Config {
 		cfg.Difficulty = new(big.Int)
 	}
 	if cfg.GasLimit == 0 {
-		cfg.GasLimit = math.MaxUint64
+		cfg.GasLimit = math.MaxBig256.Uint64()
 	}
 	if cfg.GasPrice == nil {
 		cfg.GasPrice = new(big.Int)

@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/rahul0tripathi/go-jsonrpc"
+	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/rahul0tripathi/smelter/controller"
 	"github.com/rahul0tripathi/smelter/entity"
 	"github.com/rahul0tripathi/smelter/pkg/log"
@@ -57,12 +57,14 @@ func Run(
 	erigonRpcService := services.NewErigonRpc(ethRpcService)
 
 	rpcServer := jsonrpc.NewServer(
-		jsonrpc.WithNamespaceSeparator("_"),
-		jsonrpc.WithMethodTransformer(func(s string) string {
-			r := []rune(s)
-			r[0] = unicode.ToLower(r[0])
-			return string(r)
-		}),
+		jsonrpc.WithServerMethodNameFormatter(
+			func(namespace, method string) string {
+				r := []rune(method)
+				r[0] = unicode.ToLower(r[0])
+				return namespace + "_" + string(r)
+			},
+		),
+
 	)
 
 	rpcServer.Register("eth", ethRpcService)

@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/stateless"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -54,12 +56,12 @@ func (s *StateDB) load(addr common.Address) error {
 		return nil
 	}
 
-	state, storage, err := s.db.State(s.ctx, addr)
+	loaded, storage, err := s.db.State(s.ctx, addr)
 	if err != nil {
 		return err
 	}
 
-	s.dirty.GetAccountState().NewAccount(state.Address, state.Nonce, state.Balance)
+	s.dirty.GetAccountState().NewAccount(loaded.Address, loaded.Nonce, loaded.Balance)
 	s.dirty.GetAccountStorage().NewAccountWithStorage(addr, storage.Code, storage.Slots)
 	return nil
 }
@@ -84,23 +86,31 @@ func (s *StateDB) CreateContract(addr common.Address) {
 	s.CreateAccount(addr)
 }
 
-func (s *StateDB) SubBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) {
+func (s *StateDB) SubBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	if err := s.load(addr); err != nil {
 		s.errorStack = append(s.errorStack, fmt.Errorf("SubBalance: %w", err))
-		return
+		return *uint256.NewInt(0)
 	}
 
-	s.dirty.GetAccountState().SetBalance(addr, new(big.Int).Sub(s.dirty.GetAccountState().GetBalance(addr), amount.ToBig()))
+	s.dirty.GetAccountState().SetBalance(
+		addr, new(big.Int).Sub(s.dirty.GetAccountState().GetBalance(addr), amount.ToBig()),
+	)
+	return *uint256.NewInt(0)
 }
 
-func (s *StateDB) AddBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) {
+func (s *StateDB) AddBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	if err := s.load(addr); err != nil {
 		s.errorStack = append(s.errorStack, fmt.Errorf("AddBalance: %w", err))
-		return
+		return *uint256.NewInt(0)
 	}
 
-	s.dirty.GetAccountState().SetBalance(addr, new(big.Int).Add(s.dirty.GetAccountState().GetBalance(addr), amount.ToBig()))
+	s.dirty.GetAccountState().SetBalance(
+		addr, new(big.Int).Add(s.dirty.GetAccountState().GetBalance(addr), amount.ToBig()),
+	)
+	return *uint256.NewInt(0)
 }
+
+func (s *StateDB) Finalise(bool) {}
 
 func (s *StateDB) GetBalance(addr common.Address) *uint256.Int {
 	if err := s.load(addr); err != nil {
@@ -120,7 +130,7 @@ func (s *StateDB) GetNonce(addr common.Address) uint64 {
 	return s.dirty.GetAccountState().GetNonce(addr)
 }
 
-func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
+func (s *StateDB) SetNonce(addr common.Address, nonce uint64, reason tracing.NonceChangeReason) {
 	if err := s.load(addr); err != nil {
 		s.errorStack = append(s.errorStack, fmt.Errorf("SetNonce: %w", err))
 		return
@@ -142,13 +152,14 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 	return s.dirty.GetAccountStorage().GetCode(addr)
 }
 
-func (s *StateDB) SetCode(addr common.Address, code []byte) {
+func (s *StateDB) SetCode(addr common.Address, code []byte) []byte {
 	if err := s.load(addr); err != nil {
 		s.errorStack = append(s.errorStack, fmt.Errorf("SetCode: %w", err))
-		return
+		return nil
 	}
 
 	s.dirty.GetAccountStorage().SetCode(addr, code)
+	return code
 }
 
 func (s *StateDB) GetCodeSize(addr common.Address) int {
@@ -194,13 +205,14 @@ func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	return slot
 }
 
-func (s *StateDB) SetState(addr common.Address, key common.Hash, value common.Hash) {
+func (s *StateDB) SetState(addr common.Address, key common.Hash, value common.Hash) common.Hash {
 	if err := s.load(addr); err != nil {
 		s.errorStack = append(s.errorStack, fmt.Errorf("SetState: %w", err))
-		return
+		return value
 	}
 
 	s.dirty.GetAccountStorage().SetStorage(addr, key, value)
+	return value
 }
 
 func (s *StateDB) GetStorageRoot(addr common.Address) common.Hash {
@@ -208,8 +220,9 @@ func (s *StateDB) GetStorageRoot(addr common.Address) common.Hash {
 	return common.Hash{}
 }
 
-func (s *StateDB) SelfDestruct(addr common.Address) {
+func (s *StateDB) SelfDestruct(addr common.Address) uint256.Int {
 	s.errorStack = append(s.errorStack, errors.New("unimplemented SelfDestruct()"))
+	return uint256.Int{}
 }
 
 func (s *StateDB) HasSelfDestructed(addr common.Address) bool {
@@ -217,8 +230,9 @@ func (s *StateDB) HasSelfDestructed(addr common.Address) bool {
 	return false
 }
 
-func (s *StateDB) Selfdestruct6780(addr common.Address) {
+func (s *StateDB) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
 	s.errorStack = append(s.errorStack, errors.New("unimplemented GetStorageRoot()"))
+	return uint256.Int{}, false
 }
 
 func (s *StateDB) Exist(addr common.Address) bool {
@@ -293,6 +307,10 @@ func (s *StateDB) AddPreimage(hash common.Hash, data []byte) {
 	s.errorStack = append(s.errorStack, errors.New("unimplemented AddPreimage()"))
 }
 
+func (s *StateDB) AccessEvents() *state.AccessEvents {
+	return nil
+}
+
 func (s *StateDB) PointCache() *utils.PointCache {
 	s.errorStack = append(s.errorStack, errors.New("unimplemented PointCache()"))
 	return nil // Placeholder return
@@ -300,6 +318,10 @@ func (s *StateDB) PointCache() *utils.PointCache {
 
 func (s *StateDB) Dirty() *entity.DirtyState {
 	return s.dirty
+}
+
+func (s *StateDB) Witness() *stateless.Witness {
+	return nil
 }
 
 func (s *StateDB) ApplyOverrides(overrides entity.StateOverrides) error {
