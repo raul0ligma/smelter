@@ -56,12 +56,12 @@ func (s *StateDB) load(addr common.Address) error {
 		return nil
 	}
 
-	state, storage, err := s.db.State(s.ctx, addr)
+	loaded, storage, err := s.db.State(s.ctx, addr)
 	if err != nil {
 		return err
 	}
 
-	s.dirty.GetAccountState().NewAccount(state.Address, state.Nonce, state.Balance)
+	s.dirty.GetAccountState().NewAccount(loaded.Address, loaded.Nonce, loaded.Balance)
 	s.dirty.GetAccountStorage().NewAccountWithStorage(addr, storage.Code, storage.Slots)
 	return nil
 }
@@ -92,7 +92,9 @@ func (s *StateDB) SubBalance(addr common.Address, amount *uint256.Int, reason tr
 		return *uint256.NewInt(0)
 	}
 
-	s.dirty.GetAccountState().SetBalance(addr, new(big.Int).Sub(s.dirty.GetAccountState().GetBalance(addr), amount.ToBig()))
+	s.dirty.GetAccountState().SetBalance(
+		addr, new(big.Int).Sub(s.dirty.GetAccountState().GetBalance(addr), amount.ToBig()),
+	)
 	return *uint256.NewInt(0)
 }
 
@@ -102,7 +104,9 @@ func (s *StateDB) AddBalance(addr common.Address, amount *uint256.Int, reason tr
 		return *uint256.NewInt(0)
 	}
 
-	s.dirty.GetAccountState().SetBalance(addr, new(big.Int).Add(s.dirty.GetAccountState().GetBalance(addr), amount.ToBig()))
+	s.dirty.GetAccountState().SetBalance(
+		addr, new(big.Int).Add(s.dirty.GetAccountState().GetBalance(addr), amount.ToBig()),
+	)
 	return *uint256.NewInt(0)
 }
 
