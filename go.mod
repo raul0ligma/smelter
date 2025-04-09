@@ -7,11 +7,11 @@ toolchain go1.23.8
 require (
 	github.com/consensys/gnark-crypto v0.17.0
 	github.com/ethereum/go-ethereum v1.15.7
+	github.com/filecoin-project/go-jsonrpc v0.8.0
 	github.com/go-errors/errors v1.5.1
 	github.com/go-resty/resty/v2 v2.16.5
 	github.com/holiman/uint256 v1.3.2
 	github.com/labstack/echo/v4 v4.13.3
-	github.com/rahul0tripathi/go-jsonrpc v0.1.0
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.6
 	go.uber.org/zap v1.27.0
