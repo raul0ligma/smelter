@@ -34,6 +34,7 @@ func NewExecutor(
 	cfg *config.Config,
 	db *fork.DB,
 	provider entity.ChainStateReader,
+	opts ...Option,
 ) (*SerialExecutor, error) {
 	e := &SerialExecutor{
 		db:       db,
@@ -43,13 +44,19 @@ func NewExecutor(
 		blocks:   entity.NewBlockStorage(),
 	}
 
-	block, err := provider.BlockByNumber(ctx, cfg.ForkConfig.ForkBlock)
-	if err != nil {
-		return nil, fmt.Errorf("fetch block err %w", err)
+	for _, opt := range opts {
+		opt(e)
 	}
 
-	e.prevBlockNum = cfg.ForkConfig.ForkBlock.Uint64()
-	e.prevBlockHash = block.Hash()
+	if e.prevBlockHash == common.HexToHash("") {
+		block, err := provider.BlockByNumber(ctx, cfg.ForkConfig.ForkBlock)
+		if err != nil {
+			return nil, fmt.Errorf("fetch block err %w", err)
+		}
+
+		e.prevBlockNum = cfg.ForkConfig.ForkBlock.Uint64()
+		e.prevBlockHash = block.Hash()
+	}
 	return e, nil
 }
 

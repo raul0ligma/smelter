@@ -2,6 +2,7 @@ package fork
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -35,6 +36,7 @@ func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 	if db.accountState.Exists(addr) {
 		return nil
 	}
+	fmt.Println("loading", addr.Hex())
 
 	code, err := db.stateReader.CodeAt(ctx, addr, db.config.ForkBlock)
 	if err != nil {
@@ -50,6 +52,8 @@ func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("loaded", addr.Hex())
 
 	db.accountState.NewAccount(addr, nonce, bal)
 	db.accountStorage.NewAccount(addr, code)
