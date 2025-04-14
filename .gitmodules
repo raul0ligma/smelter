@@ -1,3 +1,6 @@
 [submodule "scripts/lib/forge-std"]
 	path = scripts/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "tests/anvil/lib/forge-std"]
+	path = tests/anvil/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
