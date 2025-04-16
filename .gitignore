@@ -26,5 +26,4 @@ go.work.sum
 _bin/
 exec_test.go.go
 
-tests/anvil
 provider/rpc_test.go
