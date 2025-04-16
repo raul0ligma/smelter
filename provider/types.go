@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	MethodCodeAt      = "eth_getCode"
-	MethodNonceAt     = "eth_getTransactionCount"
-	MethodBalanceAt   = "eth_getBalance"
-	MethodBlockNumber = "eth_blockNumber"
+	MethodCodeAt       = "eth_getCode"
+	MethodNonceAt      = "eth_getTransactionCount"
+	MethodBalanceAt    = "eth_getBalance"
+	MethodBlockNumber  = "eth_blockNumber"
+	MethodGetStorageAt = "eth_getStorageAt"
 )
 
 func Func2RpcMethod(in any) string {

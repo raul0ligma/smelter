@@ -32,6 +32,10 @@ func NewDB(
 	}
 }
 
+func (db *DB) Config() entity.ForkConfig {
+	return db.config
+}
+
 func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 	if db.accountState.Exists(addr) {
 		return nil
@@ -52,8 +56,7 @@ func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 			return err
 		}
 
-		db.accountState.NewAccount(addr, uint64(nonce), (*big.Int)(&balance))
-		db.accountStorage.NewAccount(addr, code)
+		db.CreateStateWithValues(addr, uint64(nonce), (*big.Int)(&balance), code)
 		return nil
 
 	}
@@ -73,9 +76,23 @@ func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 		return err
 	}
 
+	db.CreateStateWithValues(addr, nonce, bal, code)
+	return nil
+}
+
+func (db *DB) CreateStateWithValues(addr common.Address, nonce uint64, bal *big.Int, code []byte) {
 	db.accountState.NewAccount(addr, nonce, bal)
 	db.accountStorage.NewAccount(addr, code)
-	return nil
+}
+
+func (db *DB) LoadSlots(ctx context.Context, slots entity.Slots) {
+	for _, slot := range slots {
+		db.accountStorage.SetStorage(slot.Addr, slot.Key, common.BytesToHash(slot.Value))
+	}
+}
+
+func (db *DB) SetCode(ctx context.Context, addr common.Address, code []byte) {
+	db.accountStorage.NewAccount(addr, code)
 }
 
 func (db *DB) State(ctx context.Context, addr common.Address) (*entity.AccountState, *entity.AccountStorage, error) {
@@ -154,7 +171,6 @@ func (db *DB) GetState(ctx context.Context, addr common.Address, hash common.Has
 	if val != emptyHash {
 		return val, nil
 	}
-
 	raw, err := db.stateReader.StorageAt(ctx, addr, hash, db.config.ForkBlock)
 	if err != nil {
 		return common.Hash{}, err

@@ -10,10 +10,11 @@ import (
 type ChainStateAndTransactionReader interface {
 	ethereum.BlockNumberReader
 	ethereum.ChainReader
-	BatchedStateReader
+	ethereum.ChainStateReader
 	ethereum.LogFilterer
 	ethereum.TransactionReader
 	ethereum.ChainIDReader
+	BatchedRpc
 }
 
 type BatchReq struct {
@@ -21,9 +22,13 @@ type BatchReq struct {
 	Params []any
 }
 
-type BatchedStateReader interface {
-	ethereum.ChainStateReader
+type BatchedRpc interface {
 	SupportsBatching() bool
 	BatchWithUnmarshal(ctx context.Context, requests []BatchReq, outputs []any) error
 	Batch(ctx context.Context, requests []BatchReq) ([]json.RawMessage, error)
+}
+
+type BatchedStateReader interface {
+	ethereum.ChainStateReader
+	BatchedRpc
 }
