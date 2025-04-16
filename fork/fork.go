@@ -2,24 +2,24 @@ package fork
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rahul0tripathi/smelter/entity"
 )
 
 type DB struct {
-	stateReader    ethereum.ChainStateReader
+	stateReader    entity.BatchedStateReader
 	config         entity.ForkConfig
 	accountStorage *entity.AccountsStorage
 	accountState   *entity.AccountsState
 }
 
 func NewDB(
-	stateReader ethereum.ChainStateReader,
+	stateReader entity.BatchedStateReader,
 	config entity.ForkConfig,
 	accountStorage *entity.AccountsStorage,
 	accountState *entity.AccountsState,
@@ -36,7 +36,27 @@ func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 	if db.accountState.Exists(addr) {
 		return nil
 	}
-	fmt.Println("loading", addr.Hex())
+
+	if db.stateReader.SupportsBatching() {
+		requests := []entity.BatchReq{
+			{Method: ethereum.ChainStateReader.CodeAt, Params: []any{addr, db.config.ForkBlock}},
+			{Method: ethereum.ChainStateReader.BalanceAt, Params: []any{addr, db.config.ForkBlock}},
+			{Method: ethereum.ChainStateReader.NonceAt, Params: []any{addr, db.config.ForkBlock}},
+		}
+
+		var code hexutil.Bytes
+		var balance hexutil.Big
+		var nonce hexutil.Uint64
+
+		if err := db.stateReader.BatchWithUnmarshal(context.Background(), requests, []any{&code, &balance, &nonce}); err != nil {
+			return err
+		}
+
+		db.accountState.NewAccount(addr, uint64(nonce), (*big.Int)(&balance))
+		db.accountStorage.NewAccount(addr, code)
+		return nil
+
+	}
 
 	code, err := db.stateReader.CodeAt(ctx, addr, db.config.ForkBlock)
 	if err != nil {
@@ -52,8 +72,6 @@ func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("loaded", addr.Hex())
 
 	db.accountState.NewAccount(addr, nonce, bal)
 	db.accountStorage.NewAccount(addr, code)

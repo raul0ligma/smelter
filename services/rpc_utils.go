@@ -41,7 +41,7 @@ func parseAndValidateBlockNumber(blockNumber string, latest uint64) (*big.Int, e
 
 func getBlockFromStorageOrReader(
 	exec executor,
-	reader entity.ChainStateReader,
+	reader entity.ChainStateAndTransactionReader,
 	number uint64,
 ) (*entity.SerializedBlock, error) {
 	storage := exec.BlockStorage().GetBlockByNumber(number)
@@ -120,7 +120,7 @@ func getBalanceFromBlockStorage(
 
 func getBalanceFromReader(
 	ctx context.Context,
-	reader entity.ChainStateReader,
+	reader entity.ChainStateAndTransactionReader,
 	account common.Address,
 	block *big.Int,
 ) (string, error) {
@@ -178,7 +178,7 @@ func getStateFromBlockStorage(
 
 func getStateFromReader(
 	ctx context.Context,
-	reader entity.ChainStateReader,
+	reader entity.ChainStateAndTransactionReader,
 	account common.Address,
 	slot common.Hash,
 	block *big.Int,
@@ -228,7 +228,7 @@ func (msg *jsonCallMsg) ToEthCallMsg() (call ethereum.CallMsg, err error) {
 
 func getCodeFromReader(
 	ctx context.Context,
-	reader entity.ChainStateReader,
+	reader entity.ChainStateAndTransactionReader,
 	account common.Address,
 	block *big.Int,
 ) (string, error) {
