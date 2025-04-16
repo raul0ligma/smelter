@@ -22,7 +22,7 @@ type SerialExecutor struct {
 	mu            sync.RWMutex
 	db            *fork.DB
 	cfg           *config.Config
-	provider      entity.ChainStateReader
+	provider      entity.ChainStateAndTransactionReader
 	txn           *entity.TransactionStorage
 	blocks        *entity.BlockStorage
 	prevBlockHash common.Hash
@@ -33,7 +33,8 @@ func NewExecutor(
 	ctx context.Context,
 	cfg *config.Config,
 	db *fork.DB,
-	provider entity.ChainStateReader,
+	provider entity.ChainStateAndTransactionReader,
+	opts ...Option,
 ) (*SerialExecutor, error) {
 	e := &SerialExecutor{
 		db:       db,
@@ -43,13 +44,19 @@ func NewExecutor(
 		blocks:   entity.NewBlockStorage(),
 	}
 
-	block, err := provider.BlockByNumber(ctx, cfg.ForkConfig.ForkBlock)
-	if err != nil {
-		return nil, fmt.Errorf("fetch block err %w", err)
+	for _, opt := range opts {
+		opt(e)
 	}
 
-	e.prevBlockNum = cfg.ForkConfig.ForkBlock.Uint64()
-	e.prevBlockHash = block.Hash()
+	if e.prevBlockHash == common.HexToHash("") {
+		block, err := provider.BlockByNumber(ctx, cfg.ForkConfig.ForkBlock)
+		if err != nil {
+			return nil, fmt.Errorf("fetch block err %w", err)
+		}
+
+		e.prevBlockNum = cfg.ForkConfig.ForkBlock.Uint64()
+		e.prevBlockHash = block.Hash()
+	}
 	return e, nil
 }
 

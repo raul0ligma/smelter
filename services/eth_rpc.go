@@ -20,7 +20,7 @@ import (
 )
 
 type readerAndCaller interface {
-	entity.ChainStateReader
+	entity.ChainStateAndTransactionReader
 	ethereum.ContractCaller
 }
 

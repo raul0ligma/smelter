@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -99,4 +100,12 @@ func (m *mockProvider) ChainID(ctx context.Context) (*big.Int, error) {
 
 func (m *mockProvider) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	return &types.Receipt{}, nil
+}
+
+func (m *mockProvider) SupportsBatching() bool { return false }
+func (m *mockProvider) BatchWithUnmarshal(ctx context.Context, requests []entity.BatchReq, outputs []any) error {
+	return nil
+}
+func (m *mockProvider) Batch(ctx context.Context, requests []entity.BatchReq) ([]json.RawMessage, error) {
+	return nil, nil
 }

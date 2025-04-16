@@ -25,7 +25,7 @@ type ExecutionCtx struct {
 
 type ExecutionCtxStorage struct {
 	cfg             entity.ForkConfig
-	reader          entity.ChainStateReader
+	reader          entity.ChainStateAndTransactionReader
 	mu              sync.RWMutex
 	storage         map[string]*ExecutionCtx
 	executionCtxTTL time.Duration
@@ -33,7 +33,7 @@ type ExecutionCtxStorage struct {
 
 func NewExecutionStorage(
 	cfg entity.ForkConfig,
-	reader entity.ChainStateReader,
+	reader entity.ChainStateAndTransactionReader,
 	executionCtxTTL time.Duration,
 ) *ExecutionCtxStorage {
 	return &ExecutionCtxStorage{

@@ -4,21 +4,22 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/rahul0tripathi/smelter/provider"
 )
 
 type DB struct {
-	stateReader    ethereum.ChainStateReader
+	stateReader    entity.BatchedStateReader
 	config         entity.ForkConfig
 	accountStorage *entity.AccountsStorage
 	accountState   *entity.AccountsState
 }
 
 func NewDB(
-	stateReader ethereum.ChainStateReader,
+	stateReader entity.BatchedStateReader,
 	config entity.ForkConfig,
 	accountStorage *entity.AccountsStorage,
 	accountState *entity.AccountsState,
@@ -31,9 +32,33 @@ func NewDB(
 	}
 }
 
+func (db *DB) Config() entity.ForkConfig {
+	return db.config
+}
+
 func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 	if db.accountState.Exists(addr) {
 		return nil
+	}
+
+	if db.stateReader.SupportsBatching() {
+		requests := []entity.BatchReq{
+			{Method: provider.MethodCodeAt, Params: []any{addr, db.config.ForkBlock}},
+			{Method: provider.MethodBalanceAt, Params: []any{addr, db.config.ForkBlock}},
+			{Method: provider.MethodNonceAt, Params: []any{addr, db.config.ForkBlock}},
+		}
+
+		var code hexutil.Bytes
+		var balance hexutil.Big
+		var nonce hexutil.Uint64
+
+		if err := db.stateReader.BatchWithUnmarshal(context.Background(), requests, []any{&code, &balance, &nonce}); err != nil {
+			return err
+		}
+
+		db.CreateStateWithValues(addr, uint64(nonce), (*big.Int)(&balance), code)
+		return nil
+
 	}
 
 	code, err := db.stateReader.CodeAt(ctx, addr, db.config.ForkBlock)
@@ -51,9 +76,23 @@ func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 		return err
 	}
 
+	db.CreateStateWithValues(addr, nonce, bal, code)
+	return nil
+}
+
+func (db *DB) CreateStateWithValues(addr common.Address, nonce uint64, bal *big.Int, code []byte) {
 	db.accountState.NewAccount(addr, nonce, bal)
 	db.accountStorage.NewAccount(addr, code)
-	return nil
+}
+
+func (db *DB) LoadSlots(ctx context.Context, slots entity.Slots) {
+	for _, slot := range slots {
+		db.accountStorage.SetStorage(slot.Addr, slot.Key, common.BytesToHash(slot.Value))
+	}
+}
+
+func (db *DB) SetCode(ctx context.Context, addr common.Address, code []byte) {
+	db.accountStorage.NewAccount(addr, code)
 }
 
 func (db *DB) State(ctx context.Context, addr common.Address) (*entity.AccountState, *entity.AccountStorage, error) {
@@ -132,7 +171,6 @@ func (db *DB) GetState(ctx context.Context, addr common.Address, hash common.Has
 	if val != emptyHash {
 		return val, nil
 	}
-
 	raw, err := db.stateReader.StorageAt(ctx, addr, hash, db.config.ForkBlock)
 	if err != nil {
 		return common.Hash{}, err
