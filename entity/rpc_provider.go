@@ -17,7 +17,7 @@ type ChainStateAndTransactionReader interface {
 }
 
 type BatchReq struct {
-	Method any
+	Method string
 	Params []any
 }
 

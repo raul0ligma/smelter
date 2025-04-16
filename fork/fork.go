@@ -4,11 +4,11 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/rahul0tripathi/smelter/provider"
 )
 
 type DB struct {
@@ -39,9 +39,9 @@ func (db *DB) CreateState(ctx context.Context, addr common.Address) error {
 
 	if db.stateReader.SupportsBatching() {
 		requests := []entity.BatchReq{
-			{Method: ethereum.ChainStateReader.CodeAt, Params: []any{addr, db.config.ForkBlock}},
-			{Method: ethereum.ChainStateReader.BalanceAt, Params: []any{addr, db.config.ForkBlock}},
-			{Method: ethereum.ChainStateReader.NonceAt, Params: []any{addr, db.config.ForkBlock}},
+			{Method: provider.MethodCodeAt, Params: []any{addr, db.config.ForkBlock}},
+			{Method: provider.MethodBalanceAt, Params: []any{addr, db.config.ForkBlock}},
+			{Method: provider.MethodNonceAt, Params: []any{addr, db.config.ForkBlock}},
 		}
 
 		var code hexutil.Bytes

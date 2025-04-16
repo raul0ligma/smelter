@@ -8,10 +8,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"reflect"
-	"runtime"
-	"strings"
-	"unicode"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -41,14 +37,6 @@ func (p *RpcProvider) Batch(ctx context.Context, requests []entity.BatchReq) ([]
 
 func (p *RpcProvider) BatchWithUnmarshal(ctx context.Context, requests []entity.BatchReq, outputs []any) error {
 	return errors.New("batching not supported")
-}
-
-var methodNameMap = map[string]string{
-	"CodeAt":      "eth_getCode",
-	"BalanceAt":   "eth_getBalance",
-	"StorageAt":   "eth_getStorageAt",
-	"NonceAt":     "eth_getTransactionCount",
-	"BlockNumber": "eth_blockNumber",
 }
 
 type BatchRpcProvider struct {
@@ -83,25 +71,10 @@ func (p *BatchRpcProvider) Batch(ctx context.Context, requests []entity.BatchReq
 
 	for i, req := range requests {
 
-		fnName := runtime.FuncForPC(reflect.ValueOf(req.Method).Pointer()).Name()
-		parts := strings.Split(fnName, ".")
-		methodName := parts[len(parts)-1]
-
-		if idx := strings.Index(methodName, "-"); idx > 0 {
-			methodName = methodName[:idx]
-		}
-
-		rpcMethod, ok := methodNameMap[methodName]
-		if !ok {
-			r := []rune(methodName)
-			r[0] = unicode.ToLower(r[0])
-			rpcMethod = "eth_" + string(r)
-		}
-
 		rpcParams := make([]any, len(req.Params))
 		for j, param := range req.Params {
 			// check if this is a block number parameter, mostly for all eth methods
-			if j == len(req.Params)-1 && methodName != "BlockNumber" {
+			if j == len(req.Params)-1 && req.Method != MethodBlockNumber {
 				if blockNum, ok := param.(*big.Int); ok {
 					if blockNum == nil {
 						rpcParams[j] = "latest"
@@ -116,7 +89,7 @@ func (p *BatchRpcProvider) Batch(ctx context.Context, requests []entity.BatchReq
 
 		rpcRequests[i] = map[string]any{
 			"jsonrpc": "2.0",
-			"method":  rpcMethod,
+			"method":  req.Method,
 			"params":  rpcParams,
 			"id":      i + 1,
 		}
