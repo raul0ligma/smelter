@@ -66,36 +66,46 @@ func (c *Config) BlockContext(blockNumber *big.Int, baseFee *big.Int, time uint6
 		GasLimit:    c.GasLimit,
 		BaseFee:     baseFee,
 		BlobBaseFee: c.BlobBaseFee,
+		Random:      &common.Hash{},
 	}
 }
 
-func (c *Config) ExecutionConfig(tracer *tracing.Hooks) (*params.ChainConfig, vm.Config) {
+func (c *Config) ExecutionConfig(tracer *tracing.Hooks) (
+	*params.ChainConfig,
+	vm.Config,
+) {
 	c.EVMConfig.Tracer = tracer
 	return c.ChainConfig, c.EVMConfig
 }
 
+func newUint64(val uint64) *uint64 { return &val }
+
 func setDefaults(cfg *Config) *Config {
 	if cfg.ChainConfig == nil {
 		cfg.ChainConfig = &params.ChainConfig{
-			ChainID:             big.NewInt(1),
-			HomesteadBlock:      new(big.Int),
-			DAOForkBlock:        new(big.Int),
-			DAOForkSupport:      false,
-			EIP150Block:         new(big.Int),
-			EIP155Block:         new(big.Int),
-			EIP158Block:         new(big.Int),
-			ByzantiumBlock:      new(big.Int),
-			ConstantinopleBlock: new(big.Int),
-			PetersburgBlock:     new(big.Int),
-			IstanbulBlock:       new(big.Int),
-			MuirGlacierBlock:    new(big.Int),
-			BerlinBlock:         new(big.Int),
-			LondonBlock:         new(big.Int),
+			HomesteadBlock:          new(big.Int).SetInt64(0),
+			DAOForkBlock:            new(big.Int).SetInt64(0),
+			DAOForkSupport:          true,
+			EIP150Block:             new(big.Int).SetInt64(0),
+			EIP155Block:             new(big.Int).SetInt64(0),
+			EIP158Block:             new(big.Int).SetInt64(0),
+			ByzantiumBlock:          new(big.Int).SetInt64(0),
+			ConstantinopleBlock:     new(big.Int).SetInt64(0),
+			PetersburgBlock:         new(big.Int).SetInt64(0),
+			IstanbulBlock:           new(big.Int).SetInt64(0),
+			MuirGlacierBlock:        new(big.Int).SetInt64(0),
+			BerlinBlock:             new(big.Int).SetInt64(0),
+			LondonBlock:             new(big.Int).SetInt64(0),
+			TerminalTotalDifficulty: params.MainnetChainConfig.TerminalTotalDifficulty,
+			ShanghaiTime:            newUint64(0),
+			CancunTime:              newUint64(0),
+			// enables eip 7702
+			PragueTime: newUint64(0),
 		}
 	}
 
 	if cfg.Difficulty == nil {
-		cfg.Difficulty = new(big.Int)
+		cfg.Difficulty = cfg.ChainConfig.TerminalTotalDifficulty
 	}
 	if cfg.GasLimit == 0 {
 		cfg.GasLimit = math.MaxBig256.Uint64()
