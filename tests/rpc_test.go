@@ -15,8 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-errors/errors"
 	"github.com/go-resty/resty/v2"
-	"github.com/rahul0tripathi/smelter/app"
-	"github.com/rahul0tripathi/smelter/types"
+	"github.com/raul0ligma/smelter/app"
+	"github.com/raul0ligma/smelter/types"
 	"github.com/stretchr/testify/require"
 )
 

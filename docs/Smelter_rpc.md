@@ -25,4 +25,4 @@
 ##  `smelter_setStateOverrides`
 
 ### Parameters
-- `overrides entity.StateOverrides`: [The state overrides to set](https://github.com/rahul0tripathi/smelter/blob/d7820cb69a78cdb5fd9380c488337c38afaf1288/entity/state.go#L346).
+- `overrides entity.StateOverrides`: [The state overrides to set](https://github.com/raul0ligma/smelter/blob/d7820cb69a78cdb5fd9380c488337c38afaf1288/entity/state.go#L346).

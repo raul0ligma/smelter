@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/raul0ligma/smelter/entity"
 )
 
 type RpcProvider struct {

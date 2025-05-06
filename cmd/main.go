@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/rahul0tripathi/smelter/app"
-	"github.com/rahul0tripathi/smelter/utils"
+	"github.com/raul0ligma/smelter/app"
+	"github.com/raul0ligma/smelter/utils"
 	clitool "github.com/urfave/cli/v2"
 )
 

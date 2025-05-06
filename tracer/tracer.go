@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/rahul0tripathi/smelter/entity"
-	internal "github.com/rahul0tripathi/smelter/types"
-	"github.com/rahul0tripathi/smelter/utils"
+	"github.com/raul0ligma/smelter/entity"
+	internal "github.com/raul0ligma/smelter/types"
+	"github.com/raul0ligma/smelter/utils"
 )
 
 type TraceLog struct {

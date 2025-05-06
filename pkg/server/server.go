@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/rahul0tripathi/smelter/pkg/log"
+	"github.com/raul0ligma/smelter/pkg/log"
 )
 
 type Server struct {

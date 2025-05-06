@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/rahul0tripathi/smelter/entity"
-	"github.com/rahul0tripathi/smelter/fork"
+	"github.com/raul0ligma/smelter/entity"
+	"github.com/raul0ligma/smelter/fork"
 )
 
 type executor interface {

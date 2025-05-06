@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/raul0ligma/smelter/entity"
 )
 
 type OtterscanRPC struct {

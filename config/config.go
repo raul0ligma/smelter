@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-	"github.com/rahul0tripathi/smelter/entity"
-	"github.com/rahul0tripathi/smelter/vm"
+	"github.com/raul0ligma/smelter/entity"
+	"github.com/raul0ligma/smelter/vm"
 )
 
 type Config struct {

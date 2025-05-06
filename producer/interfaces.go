@@ -2,7 +2,7 @@ package producer
 
 import (
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/raul0ligma/smelter/entity"
 )
 
 type transactionStorage interface {
