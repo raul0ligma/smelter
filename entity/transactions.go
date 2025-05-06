@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	types2 "github.com/rahul0tripathi/smelter/types"
-	"github.com/rahul0tripathi/smelter/utils"
+	types2 "github.com/raul0ligma/smelter/types"
+	"github.com/raul0ligma/smelter/utils"
 )
 
 type SerializedTransaction struct {

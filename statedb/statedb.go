@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
-	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/raul0ligma/smelter/entity"
 )
 
 var (

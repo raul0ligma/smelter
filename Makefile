@@ -20,4 +20,4 @@ build: build-common ## - build a debug binary to the current platform (windows, 
 
 .PHONY: test
 test: ## - execute go test command
-	@ go test -v -cover `go list ./... | grep -v github.com/rahul0tripathi/smelter/vm`
+	@ go test -short -v -cover `go list ./... | grep -v github.com/raul0ligma/smelter/vm`

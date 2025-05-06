@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/raul0ligma/smelter/entity"
 )
 
 type ErigonRpc struct {

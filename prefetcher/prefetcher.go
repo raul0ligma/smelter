@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/rahul0tripathi/smelter/entity"
-	"github.com/rahul0tripathi/smelter/provider"
+	"github.com/raul0ligma/smelter/entity"
+	"github.com/raul0ligma/smelter/provider"
 )
 
 type forkDB interface {

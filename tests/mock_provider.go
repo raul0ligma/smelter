@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/rahul0tripathi/smelter/entity"
+	"github.com/raul0ligma/smelter/entity"
 )
 
 type mockProvider struct {

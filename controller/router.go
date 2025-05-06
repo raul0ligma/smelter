@@ -3,8 +3,8 @@ package controller
 import (
 	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/labstack/echo/v4"
-	"github.com/rahul0tripathi/smelter/pkg/log"
-	"github.com/rahul0tripathi/smelter/pkg/server"
+	"github.com/raul0ligma/smelter/pkg/log"
+	"github.com/raul0ligma/smelter/pkg/server"
 )
 
 func SetupRouter(

@@ -1,4 +1,4 @@
-module github.com/rahul0tripathi/smelter
+module github.com/raul0ligma/smelter
 
 go 1.23.0
 
