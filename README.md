@@ -10,7 +10,7 @@
 ```
 
 A local Ethereum node written in go powered by geth, supports multiple forks and simulation, with support for otterscan block explorer
-
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/raul0ligma/smelter)
 ### Installation
 
 ```bash
